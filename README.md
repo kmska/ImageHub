@@ -5,8 +5,8 @@ This project contains a ResourceSpace plugin to generate Tiled Pyramidal TIFF fi
 ## Requirements
 
 This project requires following dependencies:
-* PHP >= 7.1.3
-* ImageMagick or vips, depending on your preferred image conversion tool
+* ResourceSpace >= 9.1
+* convert or vips, depending on your preferred image conversion tool
 
 # Usage
 
