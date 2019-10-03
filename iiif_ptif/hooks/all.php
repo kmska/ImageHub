@@ -8,7 +8,7 @@
     function getPtifFilePath($ref)
     {
         global $storagedir;
-        return $storagedir . '/' . $ref . '.tif';
+        return $storagedir . '/iiif_ptif/' . $ref . '.tif';
     }
 
     # Return the path prefixed with 'ptif:' to pass to ImageMagick's convert command to generated Tile Pyramidal TIFF files
