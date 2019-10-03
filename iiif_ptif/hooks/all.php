@@ -1,6 +1,6 @@
 <?php
     # Generate Tiled Pyramidal TIFF files when uploading a new image
-    # Should be defined in config.php as such, along with any necessary command line arguments
+    # Should be defined in config.php as such, along with any necessary command line arguments:
     # $image_alternatives[0]['name']              = 'IIIFPTIF';
     # $image_alternatives[0]['target_extension']  = 'IIIFPTIF';
 
@@ -8,6 +8,9 @@
     function getPtifFilePath($ref)
     {
         global $storagedir;
+        if(!file_exists($storagedir . '/iiif_ptif/')) {
+            mkdir($storagedir . '/iiif_ptif/');
+        }
         return $storagedir . '/iiif_ptif/' . $ref . '.tif';
     }
 
@@ -32,7 +35,7 @@
     function HookIiif_ptifAllBeforedeleteresourcefromdb($ref)
     {
        	$path = getPtifFilePath($ref);
-		if (file_exists($path)) {
+		if(file_exists($path)) {
 			unlink($path);
 		}
     }
