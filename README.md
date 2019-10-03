@@ -22,8 +22,8 @@ The following lines should be added to the configuration file of your ResourceSp
 # Must contain a leading and trailing slash
 $iiif_ptif_filestore = '/iiif_ptif/';
 
-# Recommended values: vips, convert (can be full path to executable)
-$iiif_ptif_command = 'vips';
+# Recommended values: vips im_vips2tiff, convert (can be full path to executable)
+$iiif_ptif_command = 'vips im_vips2tiff';
 
 # Example arguments for convert: -define tiff:tile-geometry=256x256 -compress jpeg -quality 100
 # Example arguments for vips: jpeg:100,tile:256x256,pyramid
