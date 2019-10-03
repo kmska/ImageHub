@@ -1,27 +1,36 @@
 # ImageHub
 
 
+## Requirements
+
+This project requires following dependencies:
+* PHP >= 7.1.3
+* ImageMagick or vips, depending on your preferred image conversion tool
+
 # Usage
 
 This project contains a ResourceSpace plugin to generate Tiled Pyramidal TIFF files when uploading a new image.
 
-In order to make use of this plugin, the iiif_ptif/ folder should be copied to the plugins/ folder of your ResourceSpace installation and activated by the system administrator (System -> Manage plugins, under 'System').
+In order to make use of this plugin, the iiif_ptif/ folder should be copied to the plugins/ folder of your ResourceSpace installation and activated by the system administrator (System -> Manage plugins, under 'System'). Also make sure that the webserver (www-data or apache2) has full access to this plugin folder.
 
-The following lines should also be added to the configuration file of your ResourceSpace installation (include/config.php):
+The following lines should be added to the configuration file of your ResourceSpace installation (include/config.php):
 
 ```
-# 'name' and 'target_extension' must always be IIIF_PTIF,
-# these are required by the ptif_files plugin to work properly.
-$image_alternatives[0]['name']              = 'IIIFPTIF';
-$image_alternatives[0]['target_extension']  = 'IIIFPTIF';
-$image_alternatives[0]['source_extensions'] = 'jpg,png,tif,psb,psd';
-$image_alternatives[0]['source_params']     = '';
-$image_alternatives[0]['filename']          = 'IIIF_Tiled_Pyramidal_TIFF';
-$image_alternatives[0]['params']            = '-define tiff:tile-geometry=256x256 -compress jpeg';
-$image_alternatives[0]['icc']               = false;
+# Config values required by iiif_ptif plugin
 
-# This must be set to NULL in order to fix a bug within ResourceSpace
-# where resource files are not properly deleted if this value is set to anything other than NULL.
-# This bug resides in include/resource_functions.php:2015.
-$resource_deletion_state = NULL;
+# Name of the folder where ptif files are stored (relative to the filestore/ directory)
+# Must contain a leading and trailing slash
+$iiif_ptif_filestore = '/iiif_ptif/';
+
+# Recommended values: vips, convert (can be full path to executable)
+$iiif_ptif_command = 'vips';
+
+# Example arguments for convert: -define tiff:tile-geometry=256x256 -compress jpeg -quality 100
+# Example arguments for vips: jpeg:100,tile:256x256,pyramid
+$iiif_ptif_arguments = 'jpeg:100,tile:256x256,pyramid';
+
+# Only used by convert command
+$iiif_ptif_prefix = 'ptif:';
+
 ```
+
