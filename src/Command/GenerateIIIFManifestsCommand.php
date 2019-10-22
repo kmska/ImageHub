@@ -5,6 +5,7 @@ namespace App\Command;
 use App\Entity\IIIfManifest;
 use App\ResourceSpace\ResourceSpace;
 use Doctrine\ORM\EntityManagerInterface;
+use Doctrine\ORM\Mapping\Entity;
 use Exception;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;
@@ -42,7 +43,14 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
         $this->imagehubData = array();
 
         $metadataFields = array('nl-titleartwork' => 'Title', 'sourceinvnr' => 'Object ID', 'description' => 'Description', 'publisher' => 'Credit Line');
+        $this->addExtraFields($resourceSpaceData, $metadataFields);
 
+        $em = $this->getContainer()->get('doctrine')->getManager();
+        $this->generateAndStoreManifests($em);
+    }
+
+    private function addExtraFields($resourceSpaceData, $metadataFields)
+    {
         foreach($resourceSpaceData as $resourceId => $data) {
             $this->imagehubData[$resourceId] = array();
             $this->addCantaloupeData($resourceId);
@@ -54,9 +62,6 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             $this->imagehubData[$resourceId]['manifest_id'] = $this->serviceUrl . 'kmska.be:' . $data['sourceinvnr'] . '/manifest.json';
             $this->imagehubData[$resourceId]['canvas_base'] = $this->serviceUrl . 'kmska.be:' . $data['sourceinvnr'];
         }
-
-        $em = $this->getContainer()->get('doctrine')->getManager();
-        $this->generateAndStoreManifests($em);
     }
 
     private function addCantaloupeData($resourceId)
@@ -141,36 +146,7 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                     $startCanvas = $canvasId;
                     $thumbnail = $serviceId;
                 }
-                $service = array(
-                    '@context' => 'http://iiif.io/api/image/2/context.json',
-                    '@id'      => $serviceId,
-                    'profile'  => 'http://iiif.io/api/image/2/level2.json'
-                );
-                $resource = array(
-                    '@id'     => $this->cantaloupeUrl . $relatedRef . '.tif/full/full/0/default.jpg',
-                    '@type'   => 'dctypes:Image',
-                    'format'  => 'image/jpeg',
-                    'service' => $service,
-                    'height'  => $this->imagehubData[$relatedRef]['height'],
-                    'width'   => $this->imagehubData[$relatedRef]['width']
-                );
-                $image = array(
-                    '@context'   => 'http://iiif.io/api/presentation/2/context.json',
-                    '@type'      => 'oa:Annotation',
-                    '@id'        => $canvasId . '/image',
-                    'motivation' => 'sc:painting',
-                    'resource'   => $resource,
-                    'on'         => $canvasId
-                );
-                $newCanvas = array(
-                    '@id'    => $canvasId,
-                    '@type'  => 'sc:Canvas',
-                    'label'  => $relatedRef,
-                    'height' => $this->imagehubData[$relatedRef]['height'],
-                    'width'  => $this->imagehubData[$relatedRef]['width'],
-                    'images' => array($image)
-                );
-                $canvases[] = $newCanvas;
+                $canvases[] = $this->generateCanvas($serviceId, $relatedRef, $canvasId);
 
 /*                // Store the canvas in the database
                 $canvasDocument = new Canvas();
@@ -180,21 +156,6 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
 */
             }
 
-            // Fill in sequence data
-            if($startCanvas == null) {
-                $manifestSequence = array(
-                    '@type'       => 'sc:Sequence',
-                    '@context'    => 'http://iiif.io/api/presentation/2/context.json',
-                    'canvases'    => $canvases
-                );
-            } else {
-                $manifestSequence = array(
-                    '@type'       => 'sc:Sequence',
-                    '@context'    => 'http://iiif.io/api/presentation/2/context.json',
-                    'startCanvas' => $startCanvas,
-                    'canvases'    => $canvases
-                );
-            }
 
             $manifestId = $data['manifest_id'];
             // Generate the whole manifest
@@ -208,27 +169,12 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                 'metadata'         => $manifestMetadata,
                 'viewingDirection' => 'left-to-right',
                 'viewingHint'      => 'individuals',
-                'sequences'        => array($manifestSequence),
+                'sequences'        => $this->createSequence($canvases, $startCanvas)
             );
 
-            //TODO do we actually need a top-level manifest?
-            // If so, we need to store the 'label' of each manifest separately and then do a SELECT to get all ID's and labels for the top-level manifest
+            $this->deleteManifest($em, $manifestId);
 
-            $qb = $em->createQueryBuilder();
-            $query = $qb->delete(IIIfManifest::class, 'manifest')
-                ->where('manifest.manifestId = :manif_id')
-                ->setParameter('manif_id', $manifestId)
-                ->getQuery();
-            $query->execute();
-            $em->flush();
-
-            // Store the manifest in mongodb
-            $manifestDocument = new IIIFManifest();
-            $manifestDocument->setManifestId($manifestId);
-            $manifestDocument->setData(json_encode($manifest));
-            $em->persist($manifestDocument);
-            $em->flush();
-
+            $manifestDocument = $this->storeManifest($em, $manifest, $manifestId);
 
             // Validate the manifest
             // We can only pass a URL to the validator, so the manifest needs to be stored and served already before validation
@@ -263,6 +209,8 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             }
         }
 
+        //TODO do we actually need a top-level manifest?
+        // If so, we need to store the 'label' of each manifest separately and then do a SELECT to get all ID's and labels for the top-level manifest
 
 
         // Generate the top-level collection and store it in mongoDB
@@ -277,21 +225,9 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             'manifests' => $manifests
         );
 
+        $this->deleteManifest($em, $collectionId);
 
-        $qb = $em->createQueryBuilder();
-        $query = $qb->delete(IIIfManifest::class, 'manifest')
-            ->where('manifest.manifestId = :manif_id')
-            ->setParameter('manif_id', $collectionId)
-            ->getQuery();
-        $query->execute();
-        $em->flush();
-
-
-        $manifestDocument = new IIIFManifest();
-        $manifestDocument->setManifestId($collectionId);
-        $manifestDocument->setData(json_encode($collection));
-        $em->persist($manifestDocument);
-        $em->flush();
+        $manifestDocument = $this->storeManifest($em, $collection, $collectionId);
 
         $valid = true;
         if($validate) {
@@ -313,6 +249,82 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             echo 'Done, created and stored ' . count($manifests) . ' manifests.' . PHP_EOL;
 //            $this->logger->info('Done, created and stored ' . $manifests . ' manifests.');
         }
+    }
+
+    private function generateCanvas($serviceId, $relatedRef, $canvasId)
+    {
+        $service = array(
+            '@context' => 'http://iiif.io/api/image/2/context.json',
+            '@id'      => $serviceId,
+            'profile'  => 'http://iiif.io/api/image/2/level2.json'
+        );
+        $resource = array(
+            '@id'     => $this->cantaloupeUrl . $relatedRef . '.tif/full/full/0/default.jpg',
+            '@type'   => 'dctypes:Image',
+            'format'  => 'image/jpeg',
+            'service' => $service,
+            'height'  => $this->imagehubData[$relatedRef]['height'],
+            'width'   => $this->imagehubData[$relatedRef]['width']
+        );
+        $image = array(
+            '@context'   => 'http://iiif.io/api/presentation/2/context.json',
+            '@type'      => 'oa:Annotation',
+            '@id'        => $canvasId . '/image',
+            'motivation' => 'sc:painting',
+            'resource'   => $resource,
+            'on'         => $canvasId
+        );
+        $newCanvas = array(
+            '@id'    => $canvasId,
+            '@type'  => 'sc:Canvas',
+            'label'  => $relatedRef,
+            'height' => $this->imagehubData[$relatedRef]['height'],
+            'width'  => $this->imagehubData[$relatedRef]['width'],
+            'images' => array($image)
+        );
+        return $newCanvas;
+    }
+
+    private function createSequence($canvases, $startCanvas)
+    {
+        // Fill in sequence data
+        if($startCanvas == null) {
+            $manifestSequence = array(
+                '@type'       => 'sc:Sequence',
+                '@context'    => 'http://iiif.io/api/presentation/2/context.json',
+                'canvases'    => $canvases
+            );
+        } else {
+            $manifestSequence = array(
+                '@type'       => 'sc:Sequence',
+                '@context'    => 'http://iiif.io/api/presentation/2/context.json',
+                'startCanvas' => $startCanvas,
+                'canvases'    => $canvases
+            );
+        }
+        return array($manifestSequence);
+    }
+
+    private function deleteManifest(EntityManagerInterface $em, $manifestId)
+    {
+        $qb = $em->createQueryBuilder();
+        $query = $qb->delete(IIIfManifest::class, 'manifest')
+                    ->where('manifest.manifestId = :manif_id')
+                    ->setParameter('manif_id', $manifestId)
+                    ->getQuery();
+        $query->execute();
+        $em->flush();
+    }
+
+    private function storeManifest(EntityManagerInterface $em, $manifest, $manifestId)
+    {
+        // Store the manifest in mongodb
+        $manifestDocument = new IIIFManifest();
+        $manifestDocument->setManifestId($manifestId);
+        $manifestDocument->setData(json_encode($manifest));
+        $em->persist($manifestDocument);
+        $em->flush();
+        return $manifestDocument;
     }
 
     private function validateManifest($validatorUrl, $manifestId)
