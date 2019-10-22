@@ -1,5 +1,0 @@
-name    : iiif_ptif
-author  : Michiel Hebben
-version : 1.0
-desc    : Allows files to be converted to Tiled Pyramidal TIFF (PTIF) on upload
-category: system

@@ -1,0 +1,42 @@
+parameters:
+    # Url should have a trailing slash
+    resourcespace_api_url: 'http://127.0.0.1/api/'
+    resourcespace_api_username: 'admin'
+    resourcespace_api_key: 'e681651ae76d8df9e41fdf4a0fd0bb3955157ab5b2064c950951fd3ccc319c4a'
+
+    datahub_url: 'http://datahub.box'
+    datahub_datapid_prefix: 'oai:datahub.vlaamsekunstcollectie.be:kmska.be:'
+#    datahub_url: 'http://datahub.kmska.be'
+#    datahub_datapid_prefix: 'oai:datahub.kmska.be:kmska.be:'
+    datahub_language: nl
+    datahub_namespace: 'lido'
+    datahub_metadataprefix: 'oai_lido'
+    datahub_data_definition:
+        title:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/titleWrap/titleSet/appellationValue'
+            field: 'nl-titleartwork'
+        short_description:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/objectDescriptionWrap/objectDescriptionSet/descriptiveNoteValue'
+            field: 'description'
+        creator:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/eventWrap/eventSet/event[eventType/term="production"]/eventActor/actorInRole/actor/nameActorSet/appellationValue[@pref="preferred"]'
+            field: 'creatorofartworkobje'
+        earliest_date:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/eventWrap/eventSet/event[eventType/term="production"]/eventDate/date/earliestDate'
+            field: 'earliestdate'
+        latest_date:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/eventWrap/eventSet/event[eventType/term="production"]/eventDate/date/latestDate'
+            label: 'latestdate'
+        publisher:
+            xpath: 'administrativeMetadata[@xml:lang="{language}"]/recordWrap/recordSource/legalBodyName/appellationValue'
+            field: 'publisher'
+        keywords:
+            xpaths:
+              - 'descriptiveMetadata[@xml:lang="{language}"]/objectClassificationWrap/objectWorkTypeWrap/objectWorkType/conceptID[@source="AAT"]'
+              - 'descriptiveMetadata[@xml:lang="{language}"]/objectClassificationWrap/objectWorkTypeWrap/objectWorkType/term[@pref="preferred"]'
+            field: 'keywords'
+
+    cantaloupe_url: 'http://127.0.0.1:8182/iiif/2/'
+    validate_manifests: true
+    validator_url: 'http://localhost:8080/validate?url='
+    service_url: 'http://127.0.0.1:8000/iiif/2/'
