@@ -40,3 +40,7 @@ parameters:
     validate_manifests: true
     validator_url: 'http://localhost:8080/validate?url='
     service_url: 'http://127.0.0.1:8000/iiif/2/'
+
+    adfs_requirement:
+        key: 'http://schemas.xmlsoap.org/claims/Group'
+        value: 'Domain Users'
