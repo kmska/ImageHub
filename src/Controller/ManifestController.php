@@ -17,7 +17,7 @@ class ManifestController extends AbstractController
     public function manifestAction(Request $request, $manifestId = '')
     {
         // Authenticate the user through the AD FS with SAML
-        if(!Authenticator::isAuthenticated($this->getParameter('adfs_requirement'))) {
+        if(!Authenticator::authenticate($this->getParameter('adfs_requirement'))) {
             return new Response('Sorry, you are not allowed to access this document.');
         } else {
             // Make sure the service URL name ends with a trailing slash
