@@ -44,29 +44,42 @@ class ResourceSpace
         return $extracted;
     }
 
-    public function getResourceSpaceIds()
+    public function getAllOriginalFilenames()
     {
         $resources = $this->getAllResources();
         $resourceIds = array();
         foreach($resources as $resource) {
-            $currentData = $this->getResourceInfo($resource['ref']);
-            if($currentData == null) {
-                continue;
-            }
-            if(empty($currentData)) {
-                continue;
-            }
-            foreach($currentData as $field) {
-                // Match based on originalfilename
-                if($field['name'] == 'originalfilename') {
-                    $filename = StringUtil::stripExtension($field['value']);
-                    $resourceIds[$filename] = $resource['ref'];
-                    break;
-                }
+            $filename = $this->getOriginalFilenameForId($resource['ref']);
+            if($filename != null) {
+                $resourceIds[$filename] = $resource['ref'];
             }
         }
 
         return $resourceIds;
+    }
+
+    public function getOriginalFilenameForId($id)
+    {
+        $currentData = $this->getResourceInfo($id);
+        if($currentData == null) {
+            return null;
+        }
+        if(empty($currentData)) {
+            return null;
+        }
+        return $this->getOriginalFilename($currentData);
+    }
+
+    public function getOriginalFilename($data)
+    {
+        $filename = null;
+        foreach($data as $field) {
+            if($field['name'] == 'originalfilename') {
+                $filename = StringUtil::stripExtension($field['value']);
+                break;
+            }
+        }
+        return $filename;
     }
 
     public function getAllResources()
@@ -88,6 +101,11 @@ class ResourceSpace
     {
         $data = $this->doApiCall('get_resource_field_data&param1=' . $id);
         return json_decode($data, true);
+    }
+
+    public function createResource()
+    {
+        return $this->doApiCall('create_resource&param1=1&param2=0&param3=&param4=1&param5=&param6=&param7=');
     }
 
     public function updateField($id, $key, $value)

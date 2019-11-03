@@ -5,7 +5,6 @@ namespace App\Command;
 use App\Entity\IIIfManifest;
 use App\ResourceSpace\ResourceSpace;
 use Doctrine\ORM\EntityManagerInterface;
-use Doctrine\ORM\Mapping\Entity;
 use Exception;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputInterface;

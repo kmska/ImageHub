@@ -13,7 +13,6 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class FillResourceSpaceCommand extends ContainerAwareCommand
 {
-    private $datahubUrl;
     private $resourceSpace;
 
     protected function configure()
@@ -21,30 +20,40 @@ class FillResourceSpaceCommand extends ContainerAwareCommand
         $this
             ->setName('app:fill-resourcespace')
             ->addArgument('csv', InputArgument::REQUIRED, 'The CSV file containing the information to put in ResourceSpace')
-            ->addArgument('url', InputArgument::OPTIONAL, 'The URL of the Datahub')
             ->setDescription('')
             ->setHelp('');
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
     {
-        $this->datahubUrl = $input->getArgument('url');
-        if(!$this->datahubUrl) {
-            $this->datahubUrl = $this->getContainer()->getParameter('datahub_url');
-        }
-
         $csvFile = $input->getArgument('csv');
 
         $this->resourceSpace = new ResourceSpace($this->getContainer());
 
         $csvData = $this->readRecordIdsFromCsv($csvFile);
 
-        $resourceSpaceIds = $this->resourceSpace->getResourceSpaceIds();
+        $resourceSpaceFilenames = $this->resourceSpace->getAllOriginalFilenames();
 
         foreach($csvData as $csvLine) {
             $filename = StringUtil::stripExtension($csvLine['originalfilename']);
-            if(array_key_exists($filename, $resourceSpaceIds)) {
-                $id = $resourceSpaceIds[$filename];
+
+            // Create a new resource if needed
+            if(!array_key_exists($filename, $resourceSpaceFilenames)) {
+                $id = $this->resourceSpace->createResource();
+                if($id != null) {
+                    if(!empty($id)) {
+                        $filename = $this->resourceSpace->getOriginalFilenameForId($id);
+                        if($filename != null) {
+                            $resourceSpaceFilenames[$filename] = $id;
+                        }
+                    }
+                }
+            }
+
+            if(!array_key_exists($filename, $resourceSpaceFilenames)) {
+                echo 'Error: could not create resource for file ' . $filename . PHP_EOL;
+            } else {
+                $id = $resourceSpaceFilenames[$filename];
 
                 foreach($csvLine as $key => $value) {
                     if($value != 'NULL') {
