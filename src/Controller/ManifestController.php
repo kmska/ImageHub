@@ -16,22 +16,35 @@ class ManifestController extends AbstractController
      */
     public function manifestAction(Request $request, $manifestId = '')
     {
-        // Authenticate the user through the AD FS with SAML
-        if(!Authenticator::authenticate($this->getParameter('adfs_requirement'))) {
-            return new Response('Sorry, you are not allowed to access this document.');
+        // Make sure the service URL name ends with a trailing slash
+        $baseUrl = rtrim($this->getParameter('service_url'), '/') . '/';
+        $manifest = $this->get('doctrine')->getRepository(IIIfManifest::class)->findOneBy(['manifestId' => $baseUrl . $manifestId . '/manifest.json']);
+        if($manifest == null) {
+            return new Response('Sorry, the requested document does not exist.', 404);
         } else {
-            // Make sure the service URL name ends with a trailing slash
-            $baseUrl = rtrim($this->getParameter('service_url'), '/') . '/';
-
-            $manifest = $this->get('doctrine')->getRepository(IIIfManifest::class)->findOneBy(['manifestId' => $baseUrl . $manifestId . '/manifest.json']);
-            if ($manifest != null) {
+            $authenticated = true;
+            $data = json_decode($manifest->getData(), true);
+            if (array_key_exists('service', $data)) {
+                if(array_key_exists('@id', $data['service'])) {
+                    if(strpos($data['service']['@id'], 'auth') > -1) {
+                        $authenticated = false;
+                    }
+                }
+            }
+            if(!$authenticated) {
+                // Authenticate the user through the AD FS with SAML
+                if (Authenticator::authenticate($this->getParameter('adfs_requirement'))) {
+                    $authenticated = true;
+                }
+            }
+            if(!$authenticated) {
+                return new Response('Sorry, you are not allowed to access this document.');
+            } else {
                 $headers = array(
                     'Content-Type' => 'application/json',
                     'Access-Control-Allow-Origin' => '*'
                 );
-                return new Response(json_encode(json_decode($manifest->getData()), JSON_PRETTY_PRINT + JSON_UNESCAPED_SLASHES + JSON_UNESCAPED_UNICODE), 200, $headers);
-            } else {
-                return new Response('Sorry, the requested document does not exist.', 404);
+                return new Response(json_encode($data, JSON_PRETTY_PRINT + JSON_UNESCAPED_SLASHES + JSON_UNESCAPED_UNICODE), 200, $headers);
             }
         }
     }

@@ -69,9 +69,11 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         $this->resourceIds = array();
 
         foreach ($this->resourceSpaceData as $resourceId => $oldData) {
-            $dataPid = $this->datahubDatapidPrefix . $oldData['sourceinvnr'];
-            $this->resourceIds[$dataPid] = $resourceId;
-            $this->getDatahubData($dataPid);
+            if(!empty($oldData['sourceinvnr'])) {
+                $dataPid = $this->datahubDatapidPrefix . $oldData['sourceinvnr'];
+                $this->resourceIds[$dataPid] = $resourceId;
+                $this->getDatahubData($dataPid);
+            }
         }
 
         if (count($this->datahubData) > 0) {
@@ -203,7 +205,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         }
 
         // Combine earliest and latest date into one
-        //TODO clen up the CSV so this isn't necessary anymore
+        //TODO clean up the CSV so this isn't necessary anymore
         if(array_key_exists('earliestdate', $newData)) {
             if(array_key_exists('latestdate', $newData)) {
                 $newData['datecreatedofartwork'] = $newData['earliestdate'] . '-01-01, ' . $newData['latestdate'] . '-12-31';

@@ -4,8 +4,8 @@ parameters:
     resourcespace_api_username: 'admin'
     resourcespace_api_key: 'e681651ae76d8df9e41fdf4a0fd0bb3955157ab5b2064c950951fd3ccc319c4a'
 
-    datahub_url: 'http://datahub.box'
-    datahub_datapid_prefix: 'oai:datahub.vlaamsekunstcollectie.be:kmska.be:'
+    datahub_url: 'http://datahub.kmska.be'
+    datahub_datapid_prefix: 'oai:datahub.kmska.be:kmska.be:'
 #    datahub_url: 'http://datahub.kmska.be'
 #    datahub_datapid_prefix: 'oai:datahub.kmska.be:kmska.be:'
     datahub_language: nl
@@ -36,11 +36,40 @@ parameters:
               - 'descriptiveMetadata[@xml:lang="{language}"]/objectClassificationWrap/objectWorkTypeWrap/objectWorkType/term[@pref="preferred"]'
             field: 'keywords'
 
-    cantaloupe_url: 'http://127.0.0.1:8182/iiif/2/'
-    validate_manifests: true
+    cantaloupe_url: 'http://imagehub.kmska.be:8182/iiif/2/'
+    validate_manifests: false
     validator_url: 'http://localhost:8080/validate?url='
-    service_url: 'http://127.0.0.1:8000/iiif/2/'
+    service_url: 'https://imagehub.kmska.be/public/iiif/2/'
+    manifest_id_prefix: 'kmska.be:'
 
     adfs_requirement:
         key: 'http://schemas.xmlsoap.org/claims/Group'
         value: 'Domain Users'
+
+    public_use:
+      key: 'clearedforusage'
+      value: 'Public use'
+      # We need to encode the '/' character into %2F
+      public_folder: 'public%2F'
+      private_folder: 'private%2F'
+
+    authentication_url: 'https://imagehub.kmska.be/public/authenticate'
+    authentication_service_description:
+      confirmLabel: 'Login'
+      description: 'The Royal Museum of Fine Arts Antwerp requires that you log in with your museum account to view this content.'
+      failureDescription: 'Authentication failed'
+      failureHeader: 'Authentication Failed'
+      header: 'Please log in'
+      label: 'Login to the Royal Museum of Fine Arts Antwerp'
+      profile: 'http://iiif.io/api/auth/1/login'
+
+    iiif_metadata_fields:
+      nl-titleartwork: 'Title'
+      sourceinvnr: 'Object ID'
+      description: 'Description'
+      publisher: 'Credit Line'
+
+
+
+
+

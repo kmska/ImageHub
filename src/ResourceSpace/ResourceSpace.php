@@ -92,7 +92,6 @@ class ResourceSpace
 
     public function updateField($id, $key, $value)
     {
-        echo 'ID ' . $id . ', ' . $key . ' = ' . $value . PHP_EOL;
         return $this->doApiCall('update_field&param1=' . $id . '&param2=' . $key . '&param3=' . urlencode($value));
     }
 

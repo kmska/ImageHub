@@ -42,44 +42,66 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
 
         $this->imagehubData = array();
 
-        $metadataFields = array('nl-titleartwork' => 'Title', 'sourceinvnr' => 'Object ID', 'description' => 'Description', 'publisher' => 'Credit Line');
-        $this->addExtraFields($resourceSpaceData, $metadataFields);
+        $metadataFields = $this->getContainer()->getParameter('iiif_metadata_fields');
+        $manifestIdPrefix = $this->getContainer()->getParameter('manifest_id_prefix');
+
+        $publicUse = $this->getContainer()->getParameter('public_use');
+        $this->addExtraFields($resourceSpaceData, $metadataFields, $manifestIdPrefix, $publicUse);
 
         $em = $this->getContainer()->get('doctrine')->getManager();
         $this->generateAndStoreManifests($em);
     }
 
-    private function addExtraFields($resourceSpaceData, $metadataFields)
+    private function addExtraFields($resourceSpaceData, $metadataFields, $manifestIdPrefix, $publicUse)
     {
         foreach($resourceSpaceData as $resourceId => $data) {
-            $this->imagehubData[$resourceId] = array();
-            $this->addCantaloupeData($resourceId);
-            $this->imagehubData[$resourceId]['metadata'] = array();
-            foreach($metadataFields as $field => $name) {
-                $this->imagehubData[$resourceId]['metadata'][$name] = $data[$field];
+            $public = false;
+            if(!empty($publicUse)) {
+                if (array_key_exists($publicUse['key'], $data)) {
+                    $expl = explode(',', $data[$publicUse['key']]);
+                    foreach ($expl as $val) {
+                        if ($val == $publicUse['value']) {
+                            $public = true;
+                            break;
+                        }
+                    }
+                }
             }
-            $this->imagehubData[$resourceId]['related_records'] = explode(PHP_EOL, $data['relatedrecords']);
-            $this->imagehubData[$resourceId]['manifest_id'] = $this->serviceUrl . 'kmska.be:' . $data['sourceinvnr'] . '/manifest.json';
-            $this->imagehubData[$resourceId]['canvas_base'] = $this->serviceUrl . 'kmska.be:' . $data['sourceinvnr'];
+
+            $url = ($public ? $publicUse['public_folder'] : $publicUse['private_folder']) . $resourceId;
+            $imageData = $this->getCantaloupeData($url);
+            if($imageData) {
+                $imageData['metadata'] = array();
+                foreach ($metadataFields as $field => $name) {
+                    $imageData['metadata'][$name] = $data[$field];
+                }
+                $imageData['related_records'] = explode(PHP_EOL, $data['relatedrecords']);
+                $imageData['canvas_base'] = $this->serviceUrl . $manifestIdPrefix . $data['sourceinvnr'];
+                $imageData['manifest_id'] = $this->serviceUrl . $manifestIdPrefix . $data['sourceinvnr'] . '/manifest.json';
+                $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
+                $imageData['public_use'] = $public;
+
+                $this->imagehubData[$resourceId] = $imageData;
+            }
         }
     }
 
-    private function addCantaloupeData($resourceId)
+    private function getCantaloupeData($resourceId)
     {
         try {
             $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json');
             $data = json_decode($jsonData);
-            $this->imagehubData[$resourceId]['height'] = $data->height;
-            $this->imagehubData[$resourceId]['width'] = $data->width;
             if($this->verbose) {
                 echo 'Retrieved image ' . $resourceId . ' from Cantaloupe' . PHP_EOL;
 //                $this->logger->info('Retrieved image ' . $resourceId . ' from Cantaloupe');
             }
+            return array('height' => $data->height, 'width' => $data->width);
         } catch(Exception $e) {
             echo $e->getMessage();
 //            $this->logger->error($e->getMessage());
             // TODO proper error reporting
         }
+        return null;
     }
 
     private function generateAndStoreManifests(EntityManagerInterface $em)
@@ -131,9 +153,14 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             $index = 0;
             $startCanvas = null;
             $thumbnail = null;
+            $isStartCanvas = false;
 
             // Loop through all works related to this resource (including itself)
             foreach($data['related_records'] as $relatedRef) {
+
+                if(!array_key_exists($relatedRef, $this->imagehubData)) {
+                    continue;
+                }
 
                 // When the related resource ID is the ID of the resource we're currently processing,
                 // we know that this canvas is in fact the main canvas.
@@ -142,11 +169,13 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                 $index++;
                 $canvasId = $data['canvas_base'] . '/canvas/' . $index . '.json';
                 $serviceId = $this->serviceUrl . $relatedRef;
+                $imageUrl = $data['image_url'];
+                $publicUse = $data['public_use'];
                 if($isStartCanvas && $startCanvas == null) {
                     $startCanvas = $canvasId;
                     $thumbnail = $serviceId;
                 }
-                $canvases[] = $this->generateCanvas($serviceId, $relatedRef, $canvasId);
+                $canvases[] = $this->generateCanvas($serviceId, $relatedRef, $imageUrl, $canvasId, $publicUse);
 
 /*                // Store the canvas in the database
                 $canvasDocument = new Canvas();
@@ -155,7 +184,6 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                 $dm->persist($canvasDocument);
 */
             }
-
 
             $manifestId = $data['manifest_id'];
             // Generate the whole manifest
@@ -171,6 +199,11 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                 'viewingHint'      => 'individuals',
                 'sequences'        => $this->createSequence($canvases, $startCanvas)
             );
+
+            // This image is not for public use, therefore we also don't want this manifest to be public
+            if($isStartCanvas && !$data['public_use']) {
+                $manifest['service'] = $this->getAuthenticationService();
+            }
 
             $this->deleteManifest($em, $manifestId);
 
@@ -251,7 +284,7 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
         }
     }
 
-    private function generateCanvas($serviceId, $relatedRef, $canvasId)
+    private function generateCanvas($serviceId, $relatedRef, $imageUrl, $canvasId, $publicUse)
     {
         $service = array(
             '@context' => 'http://iiif.io/api/image/2/context.json',
@@ -259,7 +292,7 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             'profile'  => 'http://iiif.io/api/image/2/level2.json'
         );
         $resource = array(
-            '@id'     => $this->cantaloupeUrl . $relatedRef . '.tif/full/full/0/default.jpg',
+            '@id'     => $imageUrl,
             '@type'   => 'dctypes:Image',
             'format'  => 'image/jpeg',
             'service' => $service,
@@ -274,6 +307,9 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             'resource'   => $resource,
             'on'         => $canvasId
         );
+        if(!$publicUse) {
+            $image['service'] = $this->getAuthenticationService();
+        }
         $newCanvas = array(
             '@id'    => $canvasId,
             '@type'  => 'sc:Canvas',
@@ -285,14 +321,26 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
         return $newCanvas;
     }
 
+    private function getAuthenticationService()
+    {
+        $arr = array(
+            '@context' => 'http://iiif.io/api/auth/1/context.json',
+            '@id'      => $this->getContainer()->getParameter('authentication_url'),
+        );
+        foreach($this->getContainer()->getParameter('authentication_service_description') as $key => $value) {
+            $arr[$key] = $value;
+        }
+        return $arr;
+    }
+
     private function createSequence($canvases, $startCanvas)
     {
         // Fill in sequence data
         if($startCanvas == null) {
             $manifestSequence = array(
-                '@type'       => 'sc:Sequence',
-                '@context'    => 'http://iiif.io/api/presentation/2/context.json',
-                'canvases'    => $canvases
+                '@type'    => 'sc:Sequence',
+                '@context' => 'http://iiif.io/api/presentation/2/context.json',
+                'canvases' => $canvases
             );
         } else {
             $manifestSequence = array(
