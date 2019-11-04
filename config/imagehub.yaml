@@ -40,7 +40,6 @@ parameters:
     validate_manifests: false
     validator_url: 'http://localhost:8080/validate?url='
     service_url: 'https://imagehub.kmska.be/public/iiif/2/'
-    manifest_id_prefix: 'kmska.be:'
 
     adfs_requirement:
         key: 'http://schemas.xmlsoap.org/claims/Group'

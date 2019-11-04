@@ -42,16 +42,15 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
         $this->imagehubData = array();
 
         $metadataFields = $this->getContainer()->getParameter('iiif_metadata_fields');
-        $manifestIdPrefix = $this->getContainer()->getParameter('manifest_id_prefix');
 
         $publicUse = $this->getContainer()->getParameter('public_use');
-        $this->addExtraFields($resourceSpaceData, $metadataFields, $manifestIdPrefix, $publicUse);
+        $this->addExtraFields($resourceSpaceData, $metadataFields, $publicUse);
 
         $em = $this->getContainer()->get('doctrine')->getManager();
         $this->generateAndStoreManifests($em);
     }
 
-    private function addExtraFields($resourceSpaceData, $metadataFields, $manifestIdPrefix, $publicUse)
+    private function addExtraFields($resourceSpaceData, $metadataFields, $publicUse)
     {
         foreach($resourceSpaceData as $resourceId => $data) {
             $public = false;
@@ -67,7 +66,13 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                 }
             }
 
-            $url = ($public ? $publicUse['public_folder'] : $publicUse['private_folder']) . $resourceId;
+            if($public) {
+                $url = $publicUse['public_folder'];
+            } else {
+                $url = $publicUse['private_folder'];
+            }
+            $url .= $resourceId;
+
             $imageData = $this->getCantaloupeData($url);
             if($imageData) {
                 $imageData['metadata'] = array();
@@ -75,8 +80,8 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                     $imageData['metadata'][$name] = $data[$field];
                 }
                 $imageData['related_records'] = explode(PHP_EOL, $data['relatedrecords']);
-                $imageData['canvas_base'] = $this->serviceUrl . $manifestIdPrefix . $data['sourceinvnr'];
-                $imageData['manifest_id'] = $this->serviceUrl . $manifestIdPrefix . $data['sourceinvnr'] . '/manifest.json';
+                $imageData['canvas_base'] = $this->serviceUrl . $resourceId;
+                $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
                 $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
                 $imageData['public_use'] = $public;
 

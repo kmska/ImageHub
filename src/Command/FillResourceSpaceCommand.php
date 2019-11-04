@@ -36,36 +36,23 @@ class FillResourceSpaceCommand extends ContainerAwareCommand
 
         foreach($csvData as $csvLine) {
             $filename = StringUtil::stripExtension($csvLine['originalfilename']);
-
-            // Create a new resource if needed
             if(!array_key_exists($filename, $resourceSpaceFilenames)) {
-                $id = $this->resourceSpace->createResource();
-                if($id != null) {
-                    if(!empty($id)) {
-                        $filename = $this->resourceSpace->getOriginalFilenameForId($id);
-                        if($filename != null) {
-                            $resourceSpaceFilenames[$filename] = $id;
-                        }
-                    }
-                }
+                echo 'Error: could not find any resources for file ' . $filename . PHP_EOL;
+                continue;
             }
 
-            if(!array_key_exists($filename, $resourceSpaceFilenames)) {
-                echo 'Error: could not create resource for file ' . $filename . PHP_EOL;
-            } else {
-                $id = $resourceSpaceFilenames[$filename];
+            $id = $resourceSpaceFilenames[$filename];
 
-                foreach($csvLine as $key => $value) {
-                    if($value != 'NULL') {
-                        // Combine start date and end into one date
-                        // TODO clean up the CSV so we don't need to do this anymore
-                        if ($key == 'datecreatedofartwork-start') {
-                            if ($value != '0') {
-                                $this->resourceSpace->updateField($id, 'datecreatedofartwork', $value . '-01-01, ' . $csvLine['datecreatedofartwork-end'] . '-12-31');
-                            }
-                        } else if ($key != 'originalfilename' && $key != 'datecreatedofartwork-end') {
-                            $this->resourceSpace->updateField($id, $key, $value);
+            foreach($csvLine as $key => $value) {
+                if($value != 'NULL') {
+                    // Combine start date and end into one date
+                    // TODO clean up the CSV so we don't need to do this anymore
+                    if ($key == 'datecreatedofartwork-start') {
+                        if ($value != '0') {
+                            $this->resourceSpace->updateField($id, 'datecreatedofartwork', $value . '-01-01, ' . $csvLine['datecreatedofartwork-end'] . '-12-31');
                         }
+                    } else if ($key != 'originalfilename' && $key != 'datecreatedofartwork-end') {
+                        $this->resourceSpace->updateField($id, $key, $value);
                     }
                 }
             }
