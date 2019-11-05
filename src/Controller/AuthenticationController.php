@@ -23,7 +23,7 @@ class AuthenticationController extends AbstractController
      */
     public function authenticateAction(Request $request)
     {
-        $adfsRequirement = $this->getParameter('adfs_requirement');
+        $adfsRequirement = $this->getParameter('adfs_requirements');
 
         // Forbidden by default
         $returnCode = 403;

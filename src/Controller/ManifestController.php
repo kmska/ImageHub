@@ -33,7 +33,7 @@ class ManifestController extends AbstractController
             }
             if(!$authenticated) {
                 // Authenticate the user through the AD FS with SAML
-                if (Authenticator::authenticate($this->getParameter('adfs_requirement'))) {
+                if (Authenticator::authenticate($this->getParameter('adfs_requirements'))) {
                     $authenticated = true;
                 }
             }

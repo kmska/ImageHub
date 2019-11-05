@@ -17,7 +17,7 @@ class CollectionController extends AbstractController
     public function collectionAction(Request $request)
     {
         // Authenticate the user through the AD FS with SAML
-        if(!Authenticator::authenticate($this->getParameter('adfs_requirement'))) {
+        if(!Authenticator::authenticate($this->getParameter('adfs_requirements'))) {
             return new Response('Sorry, you are not allowed to access this document.', 403);
         } else {
             // Make sure the service URL name ends with a trailing slash

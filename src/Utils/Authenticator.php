@@ -13,30 +13,32 @@ use SimpleSAML\Auth\Simple;
 
 class Authenticator
 {
-    public static function authenticate($adfsRequirement)
+    public static function authenticate($adfsRequirements)
     {
         $auth = new Simple('default-sp');
         if ($auth->isAuthenticated()) {
-            return Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement);
+            return Authenticator::isAllowed($auth->getAttributes(), $adfsRequirements);
         } else {
             $auth->requireAuth();
             if ($auth->isAuthenticated()) {
-                return Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement);
+                return Authenticator::isAllowed($auth->getAttributes(), $adfsRequirements);
             } else {
                 return false;
             }
         }
     }
 
-    public static function isAllowed($attributes, $adfsRequirement)
+    public static function isAllowed($attributes, $adfsRequirements)
     {
         $allowed = false;
         foreach ($attributes as $key => $values) {
-            if ($adfsRequirement['key'] == $key) {
-                foreach ($values as $value) {
-                    if ($adfsRequirement['value'] == $value) {
-                        $allowed = true;
-                        break;
+            foreach($adfsRequirements as $requirement) {
+                if ($requirement['key'] == $key) {
+                    foreach ($values as $value) {
+                        if ($requirement['value'] == $value) {
+                            $allowed = true;
+                            break;
+                        }
                     }
                 }
             }

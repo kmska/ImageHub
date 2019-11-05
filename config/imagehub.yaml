@@ -41,9 +41,9 @@ parameters:
     validator_url: 'http://localhost:8080/validate?url='
     service_url: 'https://imagehub.kmska.be/public/iiif/2/'
 
-    adfs_requirement:
-        key: 'http://schemas.xmlsoap.org/claims/Group'
-        value: 'Domain Users'
+    adfs_requirements:
+        - key: 'http://schemas.xmlsoap.org/claims/Group'
+          value: 'Domain Users'
 
     public_use:
       key: 'clearedforusage'
