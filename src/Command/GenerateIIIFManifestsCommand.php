@@ -80,6 +80,9 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                     $imageData['metadata'][$name] = $data[$field];
                 }
                 $imageData['related_records'] = explode(PHP_EOL, $data['relatedrecords']);
+                if(!in_array($resourceId, $imageData['related_records'])) {
+                    $imageData['related_records'][] = $resourceId;
+                }
                 $imageData['canvas_base'] = $this->serviceUrl . $resourceId;
                 $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
                 $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
