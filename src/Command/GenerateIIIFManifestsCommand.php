@@ -86,6 +86,7 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
                 $imageData['canvas_base'] = $this->serviceUrl . $resourceId;
                 $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
                 $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
+                $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
                 $imageData['public_use'] = $public;
 
                 $this->imagehubData[$resourceId] = $imageData;
@@ -175,7 +176,8 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
 
                 $index++;
                 $canvasId = $data['canvas_base'] . '/canvas/' . $index . '.json';
-                $serviceId = $this->serviceUrl . $relatedRef;
+//                $serviceId = $this->serviceUrl . $relatedRef;
+                $serviceId = $data['service_id'];
                 $imageUrl = $data['image_url'];
                 $publicUse = $data['public_use'];
                 if($isStartCanvas && $startCanvas == null) {
