@@ -67,6 +67,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             return;
         }
         $this->resourceIds = array();
+        $this->datahubData = array();
 
         foreach ($this->resourceSpaceData as $resourceId => $oldData) {
             if(!empty($oldData['sourceinvnr'])) {
