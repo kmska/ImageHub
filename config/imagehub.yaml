@@ -5,12 +5,13 @@ parameters:
     resourcespace_api_key: 'e681651ae76d8df9e41fdf4a0fd0bb3955157ab5b2064c950951fd3ccc319c4a'
 
     datahub_url: 'http://datahub.kmska.be'
-    datahub_datapid_prefix: 'oai:datahub.kmska.be:kmska.be:'
-#    datahub_url: 'http://datahub.kmska.be'
-#    datahub_datapid_prefix: 'oai:datahub.kmska.be:kmska.be:'
+    datahub_record_id_prefix: 'oai:datahub.kmska.be:kmska.be:'
+#    datahub_url: 'http://datahub.iiif.vlaamsekunstcollectie.be'
+#    datahub_record_id_prefix: 'oai:datahub.vlaamsekunstcollectie.be:kmska.be:'
     datahub_language: nl
     datahub_namespace: 'lido'
     datahub_metadataprefix: 'oai_lido'
+    datahub_related_works_xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectRelationWrap/relatedWorksWrap/relatedWorkSet'
     datahub_data_definition:
         title:
             xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/titleWrap/titleSet/appellationValue'

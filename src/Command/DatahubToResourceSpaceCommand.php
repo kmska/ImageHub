@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\ResourceSpace\ResourceSpace;
+use App\Utils\StringUtil;
 use DOMDocument;
 use DOMXPath;
 use Phpoaipmh\Endpoint;
@@ -15,13 +16,14 @@ use Symfony\Component\Console\Output\OutputInterface;
 
 class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 {
-    private $datahubDatapidPrefix;
+    private $datahubRecordIdPrefix;
 
     private $datahubUrl;
     private $datahubLanguage;
     private $namespace;
     private $metadataPrefix;
     private $dataDefinition;
+    private $relatedWorksXpath;
 
     private $datahubEndpoint;
     private $verbose;
@@ -37,6 +39,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
     {
         $this
             ->setName('app:datahub-to-resourcespace')
+            ->addArgument('rs_id', InputArgument::OPTIONAL, 'The ID (ref) of the resource in ResourceSpace that needs updating')
             ->addArgument('url', InputArgument::OPTIONAL, 'The URL of the Datahub')
             ->setDescription('')
             ->setHelp('');
@@ -46,23 +49,32 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
     {
         $this->verbose = $input->getOption('verbose');
 
+        $resourceSpaceId = $input->getArgument('rs_id');
+        if(!preg_match('/^[0-9]+$/', $resourceSpaceId)) {
+            $resourceSpaceId = null;
+        }
+
         $this->datahubUrl = $input->getArgument('url');
         if (!$this->datahubUrl) {
             $this->datahubUrl = $this->getContainer()->getParameter('datahub_url');
         }
 
-        $this->datahubDatapidPrefix = $this->getContainer()->getParameter('datahub_datapid_prefix');
+        $this->datahubRecordIdPrefix = $this->getContainer()->getParameter('datahub_record_id_prefix');
 
         $this->datahubLanguage = $this->getContainer()->getParameter('datahub_language');
         $this->namespace = $this->getContainer()->getParameter('datahub_namespace');
         $this->metadataPrefix = $this->getContainer()->getParameter('datahub_metadataprefix');
+        $this->relatedWorksXpath = $this->getContainer()->getParameter('datahub_related_works_xpath');
         $this->dataDefinition = $this->getContainer()->getParameter('datahub_data_definition');
 
-
-        // Make sure the API URL does not end with a '?' character
         $this->resourceSpace = new ResourceSpace($this->getContainer());
 
-        $this->resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
+        if($resourceSpaceId != null) {
+            $this->resourceSpaceData = array($resourceSpaceId => $this->resourceSpace->getResourceSpaceData($resourceSpaceId));
+        } else {
+            $this->resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
+        }
+
         if ($this->resourceSpaceData === null) {
             return;
         }
@@ -71,9 +83,9 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
         foreach ($this->resourceSpaceData as $resourceId => $oldData) {
             if(!empty($oldData['sourceinvnr'])) {
-                $dataPid = $this->datahubDatapidPrefix . $oldData['sourceinvnr'];
-                $this->resourceIds[$dataPid] = $resourceId;
-                $this->getDatahubData($dataPid);
+                $recordId = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($oldData['sourceinvnr']);
+                $this->resourceIds[$recordId] = $resourceId;
+                $this->getDatahubData($recordId);
             }
         }
 
@@ -82,20 +94,20 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             $this->addAllRelations();
             $this->fixSortOrders();
 
-            foreach ($this->datahubData as $dataPid => $newData) {
-                $this->updateResourceSpaceFields($dataPid, $newData);
+            foreach ($this->datahubData as $recordId => $newData) {
+                $this->updateResourceSpaceFields($recordId, $newData);
             }
         }
     }
 
-    function getDatahubData($dataPid)
+    function getDatahubData($recordId)
     {
         $newData = array();
         try {
             if (!$this->datahubEndpoint)
                 $this->datahubEndpoint = Endpoint::build($this->datahubUrl . '/oai');
 
-            $record = $this->datahubEndpoint->getRecord($dataPid, $this->metadataPrefix);
+            $record = $this->datahubEndpoint->getRecord($recordId, $this->metadataPrefix);
             $data = $record->GetRecord->record->metadata->children($this->namespace, true);
             $domDoc = new DOMDocument;
             $domDoc->loadXML($data->asXML());
@@ -136,15 +148,21 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             }
 
 
-            $this->relations[$dataPid] = array();
+            $this->relations[$recordId] = array(
+                $recordId => array(
+                    'related_work_type' => 'relation',
+                    'record_id'         => $recordId,
+                    'sort_order'        => 1
+                )
+            );
             // Find all related works (hasPart, isPartOf, relatedTo)
-            $query = $this->buildXpath('descriptiveMetadata[@xml:lang="{language}"]/objectRelationWrap/relatedWorksWrap/relatedWorkSet', $this->datahubLanguage);
+            $query = $this->buildXpath($this->relatedWorksXpath, $this->datahubLanguage);
             $domNodes = $xpath->query($query);
             $value = null;
             if ($domNodes) {
                 if (count($domNodes) > 0) {
                     foreach ($domNodes as $domNode) {
-                        $relatedDataPid = null;
+                        $relatedRecordId = null;
                         $relation = null;
                         $sortOrder = 1;
                         if($domNode->attributes) {
@@ -164,7 +182,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                                             if($objectId->attributes) {
                                                 for($i = 0; $i < $objectId->attributes->length; $i++) {
                                                     if($objectId->attributes->item($i)->nodeName == $this->namespace . ':type' && $objectId->attributes->item($i)->nodeValue == 'oai') {
-                                                        $relatedDataPid = $objectId->nodeValue;
+                                                        $relatedRecordId = $objectId->nodeValue;
                                                     }
                                                 }
                                             }
@@ -180,28 +198,30 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                                 }
                             }
                         }
-                        if($relatedDataPid != null) {
 
-                            if($relation == null) {
-                                $relation = 'relation';
+                        if($relatedRecordId != null) {
+                            if(!array_key_exists($relatedRecordId, $this->relations[$recordId])) {
+                                if ($relation == null) {
+                                    $relation = 'relation';
+                                }
+                                $arr = array(
+                                    'related_work_type' => $relation,
+                                    'record_id' => $relatedRecordId,
+                                    'sort_order' => $sortOrder
+                                );
+                                $this->relations[$recordId][$relatedRecordId] = $arr;
                             }
-                            $arr = array(
-                                'related_work_type' => $relation,
-                                'data_pid'          => $relatedDataPid,
-                                'sort_order'        => $sortOrder
-                            );
-                            $this->relations[$dataPid][$relatedDataPid] = $arr;
                         }
                     }
                 }
             }
         }
         catch(OaipmhException $e) {
-            echo 'Data pid ' . $dataPid . ' error: ' . $e . PHP_EOL;
+            echo 'Data pid ' . $recordId . ' error: ' . $e . PHP_EOL;
 //            $this->logger->error('Resource ' . $resourceId . ' (data pid ' . $dataPid . ') error: ' . $e);
         }
         catch(HttpException $e) {
-            echo 'Data pid ' . $dataPid . ' error: ' . $e . PHP_EOL;
+            echo 'Data pid ' . $recordId . ' error: ' . $e . PHP_EOL;
 //            $this->logger->error('Resource ' . $resourceId . ' (data pid ' . $dataPid . ') error: ' . $e);
         }
 
@@ -220,7 +240,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             unset($newData['latestdate']);
         }
 
-        $this->datahubData[$dataPid] = $newData;
+        $this->datahubData[$recordId] = $newData;
     }
 
     private function addAllRelations()
@@ -240,10 +260,10 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                 foreach($relations as $otherPid => $otherRelation) {
                     if(array_key_exists($resourceId, $otherRelation)) {
                         foreach ($related as $relatedData) {
-                            if (!array_key_exists($relatedData['data_pid'], $otherRelation)) {
-                                $relations[$otherPid][$relatedData['data_pid']] = array(
+                            if (!array_key_exists($relatedData['record_id'], $otherRelation)) {
+                                $relations[$otherPid][$relatedData['record_id']] = array(
                                     'related_work_type' => 'relation',
-                                    'data_pid'          => $relatedData['data_pid'],
+                                    'record_id'         => $relatedData['record_id'],
                                     'sort_order'        => $relatedData['sort_order']
                                 );
                                 $relationsChanged = true;
@@ -257,12 +277,12 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         // Add the newly found relations to the appropriate related_works arrays
         foreach($relations as $resourceId => $related) {
             foreach($related as $relatedData) {
-                if(array_key_exists($relatedData['data_pid'], $this->relations)) {
+                if(array_key_exists($relatedData['record_id'], $this->relations)) {
                     if (array_key_exists($resourceId, $this->relations)) {
-                        if (!array_key_exists($relatedData['data_pid'], $this->relations[$resourceId])) {
-                            $this->relations[$resourceId][$relatedData['data_pid']] = array(
+                        if (!array_key_exists($relatedData['record_id'], $this->relations[$resourceId])) {
+                            $this->relations[$resourceId][$relatedData['record_id']] = array(
                                 'related_work_type' => 'relation',
-                                'data_pid'          => $relatedData['data_pid'],
+                                'record_id'         => $relatedData['record_id'],
                                 'sort_order'        => $relatedData['sort_order']
                             );
                         }
@@ -270,18 +290,6 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                 }
             }
         }
-
-        // Add reference to itself
-        foreach($this->relations as $resourceId => $value) {
-            if (!array_key_exists($resourceId, $value)) {
-                $this->relations[$resourceId][$resourceId] = array(
-                    'related_work_type' => 'relation',
-                    'data_pid'          => $resourceId,
-                    'sort_order'        => 1
-                );
-            }
-        }
-
     }
 
     private function isHigherOrder($type, $highestType)
@@ -349,15 +357,16 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                 // Sort related works based on sort_order
                 uasort($this->relations[$dataPid], array('App\Command\DatahubToResourceSpaceCommand', 'sortRelatedWorks'));
 
-                $relations = '';
-                foreach($this->relations[$dataPid] as $key => $value) {
-                    if(array_key_exists($dataPid, $this->resourceIds)) {
-                        $relations .= (empty($relations) ? '' : '\n') . $this->resourceIds[$key];
-                    }
-                }
-
-                $this->datahubData[$dataPid]['relatedrecords'] = $relations;
             }
+
+            $relations = '';
+            foreach($this->relations[$dataPid] as $k => $v) {
+                if(array_key_exists($dataPid, $this->resourceIds)) {
+                    $relations .= (empty($relations) ? '' : '\n') . $this->resourceIds[$k];
+                }
+            }
+
+            $this->datahubData[$dataPid]['relatedrecords'] = $relations;
         }
     }
 

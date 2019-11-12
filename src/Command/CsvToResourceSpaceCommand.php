@@ -2,23 +2,23 @@
 
 namespace App\Command;
 
-
-
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
+use Exception;
+use Phpoaipmh\Endpoint;
 use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
 
-class FillResourceSpaceCommand extends ContainerAwareCommand
+class CsvToResourceSpaceCommand extends ContainerAwareCommand
 {
     private $resourceSpace;
 
     protected function configure()
     {
         $this
-            ->setName('app:fill-resourcespace')
+            ->setName('app:csv-to-resourcespace')
             ->addArgument('csv', InputArgument::REQUIRED, 'The CSV file containing the information to put in ResourceSpace')
             ->setDescription('')
             ->setHelp('');
@@ -34,7 +34,26 @@ class FillResourceSpaceCommand extends ContainerAwareCommand
 
         $resourceSpaceFilenames = $this->resourceSpace->getAllOriginalFilenames();
 
+        $datahubUrl = $this->getContainer()->getParameter('datahub_url');
+        $metadataPrefix = $this->getContainer()->getParameter('datahub_metadataprefix');
+        $datahubDatapidPrefix = $this->getContainer()->getParameter('datahub_record_id_prefix');
+        $datahubEndpoint = null;
+
         foreach($csvData as $csvLine) {
+
+            try {
+                if (!$datahubEndpoint)
+                    $datahubEndpoint = Endpoint::build($datahubUrl . '/oai');
+
+                $datahubEndpoint->getRecord($datahubDatapidPrefix . StringUtil::cleanObjectNumber($csvLine['sourceinvnr']), $metadataPrefix);
+            }catch(Exception $exception) {
+                echo $exception . PHP_EOL;
+            }
+
+
+            if(true)
+            continue;
+
             $filename = StringUtil::stripExtension($csvLine['originalfilename']);
             if(!array_key_exists($filename, $resourceSpaceFilenames)) {
                 echo 'Error: could not find any resources for file ' . $filename . PHP_EOL;

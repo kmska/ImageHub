@@ -30,7 +30,7 @@ class ResourceSpace
         return $data;
     }
 
-    private function getResourceSpaceData($ref)
+    public function getResourceSpaceData($ref)
     {
         $extracted = array();
         $currentData = $this->getResourceInfo($ref);
