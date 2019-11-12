@@ -206,8 +206,8 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                                 }
                                 $arr = array(
                                     'related_work_type' => $relation,
-                                    'record_id' => $relatedRecordId,
-                                    'sort_order' => $sortOrder
+                                    'record_id'         => $relatedRecordId,
+                                    'sort_order'        => $sortOrder
                                 );
                                 $this->relations[$recordId][$relatedRecordId] = $arr;
                             }
@@ -217,12 +217,12 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             }
         }
         catch(OaipmhException $e) {
-            echo 'Data pid ' . $recordId . ' error: ' . $e . PHP_EOL;
-//            $this->logger->error('Resource ' . $resourceId . ' (data pid ' . $dataPid . ') error: ' . $e);
+            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
+//            $this->logger->error('Resource ' . $resourceId . ' (record id ' . $recordId . ') error: ' . $e);
         }
         catch(HttpException $e) {
-            echo 'Data pid ' . $recordId . ' error: ' . $e . PHP_EOL;
-//            $this->logger->error('Resource ' . $resourceId . ' (data pid ' . $dataPid . ') error: ' . $e);
+            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
+//            $this->logger->error('Resource ' . $resourceId . ' (record id ' . $recordId . ') error: ' . $e);
         }
 
         // Combine earliest and latest date into one
@@ -248,20 +248,20 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         $relations = array();
 
         // Initialize the array containing all directly related works
-        foreach($this->relations as $resourceId => $value) {
-            $relations[$resourceId] = $value;
+        foreach($this->relations as $recordId => $value) {
+            $relations[$recordId] = $value;
         }
 
-        // Loop through all data pids and keep adding relations until all (directly or indirectly) related works contain references to each other
+        // Loop through all records and keep adding relations until all (directly or indirectly) related works contain references to each other
         $relationsChanged = true;
         while($relationsChanged) {
             $relationsChanged = false;
-            foreach($relations as $resourceId => $related) {
-                foreach($relations as $otherPid => $otherRelation) {
-                    if(array_key_exists($resourceId, $otherRelation)) {
+            foreach($relations as $recordId => $related) {
+                foreach($relations as $otherid => $otherRelation) {
+                    if(array_key_exists($recordId, $otherRelation)) {
                         foreach ($related as $relatedData) {
                             if (!array_key_exists($relatedData['record_id'], $otherRelation)) {
-                                $relations[$otherPid][$relatedData['record_id']] = array(
+                                $relations[$otherid][$relatedData['record_id']] = array(
                                     'related_work_type' => 'relation',
                                     'record_id'         => $relatedData['record_id'],
                                     'sort_order'        => $relatedData['sort_order']
@@ -275,12 +275,12 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         }
 
         // Add the newly found relations to the appropriate related_works arrays
-        foreach($relations as $resourceId => $related) {
+        foreach($relations as $recordId => $related) {
             foreach($related as $relatedData) {
                 if(array_key_exists($relatedData['record_id'], $this->relations)) {
-                    if (array_key_exists($resourceId, $this->relations)) {
-                        if (!array_key_exists($relatedData['record_id'], $this->relations[$resourceId])) {
-                            $this->relations[$resourceId][$relatedData['record_id']] = array(
+                    if (array_key_exists($recordId, $this->relations)) {
+                        if (!array_key_exists($relatedData['record_id'], $this->relations[$recordId])) {
+                            $this->relations[$recordId][$relatedData['record_id']] = array(
                                 'related_work_type' => 'relation',
                                 'record_id'         => $relatedData['record_id'],
                                 'sort_order'        => $relatedData['sort_order']
@@ -309,40 +309,40 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
     private function fixSortOrders()
     {
-        foreach($this->relations as $dataPid => $value) {
+        foreach($this->relations as $recordId => $value) {
             if(count($value) > 1) {
 
-                // Sort based on data pids to ensure all related_works for related data pid's contain exactly the same information in the same order
-                ksort($this->relations[$dataPid]);
+                // Sort based on record ids to ensure all related_works for related record ids contain exactly the same information in the same order
+                ksort($this->relations[$recordId]);
 
                 // Check for colliding sort orders
                 $mismatch = true;
                 while($mismatch) {
                     $mismatch = false;
-                    foreach ($this->relations[$dataPid] as $pid => $relatedWork) {
-                        $order = $this->relations[$dataPid][$pid]['sort_order'];
+                    foreach ($this->relations[$recordId] as $relatedId => $relatedWork) {
+                        $order = $this->relations[$recordId][$relatedId]['sort_order'];
 
-                        foreach ($this->relations[$dataPid] as $otherPid => $otherWork) {
+                        foreach ($this->relations[$recordId] as $otherId => $otherWork) {
 
                             // Find colliding sort orders
-                            if ($pid != $otherPid && $this->relations[$dataPid][$otherPid]['sort_order'] == $order) {
+                            if ($relatedId != $otherId && $this->relations[$recordId][$otherId]['sort_order'] == $order) {
 
                                 // Upon collision, find out which relation has the highest priority
                                 $highest = null;
                                 $highestType = 'none';
-                                foreach ($this->relations[$dataPid] as $relatedRef => $data) {
-                                    if ($this->relations[$dataPid][$relatedRef]['sort_order'] == $order
-                                        && $this->isHigherOrder($this->relations[$dataPid][$relatedRef]['related_work_type'], $highestType)) {
+                                foreach ($this->relations[$recordId] as $relatedRef => $data) {
+                                    if ($this->relations[$recordId][$relatedRef]['sort_order'] == $order
+                                        && $this->isHigherOrder($this->relations[$recordId][$relatedRef]['related_work_type'], $highestType)) {
                                         $highest = $relatedRef;
-                                        $highestType = $this->relations[$dataPid][$relatedRef]['related_work_type'];
+                                        $highestType = $this->relations[$recordId][$relatedRef]['related_work_type'];
                                     }
                                 }
 
                                 // Increment the sort order of all related works with the same or higher sort order with one,
                                 // except the one with the highest priority
-                                foreach ($this->relations[$dataPid] as $relatedRef => $data) {
-                                    if ($relatedRef != $highest && $this->relations[$dataPid][$relatedRef]['sort_order'] >= $order) {
-                                        $this->relations[$dataPid][$relatedRef]['sort_order'] = $this->relations[$dataPid][$relatedRef]['sort_order'] + 1;
+                                foreach ($this->relations[$recordId] as $relatedRef => $data) {
+                                    if ($relatedRef != $highest && $this->relations[$recordId][$relatedRef]['sort_order'] >= $order) {
+                                        $this->relations[$recordId][$relatedRef]['sort_order'] = $this->relations[$recordId][$relatedRef]['sort_order'] + 1;
                                     }
                                 }
 
@@ -355,18 +355,18 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                 }
 
                 // Sort related works based on sort_order
-                uasort($this->relations[$dataPid], array('App\Command\DatahubToResourceSpaceCommand', 'sortRelatedWorks'));
+                uasort($this->relations[$recordId], array('App\Command\DatahubToResourceSpaceCommand', 'sortRelatedWorks'));
 
             }
 
             $relations = '';
-            foreach($this->relations[$dataPid] as $k => $v) {
-                if(array_key_exists($dataPid, $this->resourceIds)) {
+            foreach($this->relations[$recordId] as $k => $v) {
+                if(array_key_exists($recordId, $this->resourceIds)) {
                     $relations .= (empty($relations) ? '' : '\n') . $this->resourceIds[$k];
                 }
             }
 
-            $this->datahubData[$dataPid]['relatedrecords'] = $relations;
+            $this->datahubData[$recordId]['relatedrecords'] = $relations;
         }
     }
 
@@ -375,9 +375,9 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         return $a['sort_order'] - $b['sort_order'];
     }
 
-    function updateResourceSpaceFields($dataPid, $newData)
+    function updateResourceSpaceFields($recordId, $newData)
     {
-        $resourceId = $this->resourceIds[$dataPid];
+        $resourceId = $this->resourceIds[$recordId];
         $oldData = $this->resourceSpaceData[$resourceId];
 
         $updatedFields = 0;
