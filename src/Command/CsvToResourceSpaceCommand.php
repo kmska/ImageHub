@@ -68,7 +68,7 @@ class CsvToResourceSpaceCommand extends ContainerAwareCommand
                     // TODO clean up the CSV so we don't need to do this anymore
                     if ($key == 'datecreatedofartwork-start') {
                         if ($value != '0') {
-                            $this->resourceSpace->updateField($id, 'datecreatedofartwork', $value . '-01-01, ' . $csvLine['datecreatedofartwork-end'] . '-12-31');
+                            $this->resourceSpace->updateField($id, 'datecreatedofartwork', StringUtil::getDateRange($value, $csvLine['datecreatedofartwork-end']));
                         }
                     } else if ($key != 'originalfilename' && $key != 'datecreatedofartwork-end') {
                         $this->resourceSpace->updateField($id, $key, $value);

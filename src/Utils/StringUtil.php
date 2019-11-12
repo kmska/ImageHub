@@ -14,6 +14,24 @@ class StringUtil
         return $filename;
     }
 
+    public static function getDateRange($earliestDate, $latestDate)
+    {
+        return StringUtil::getFullDate($earliestDate, '01', '01') . ', ' . StringUtil::getFullDate($latestDate,'12', '31');
+    }
+
+    public static function getFullDate($date, $monthAppend, $dayAppend)
+    {
+        if(preg_match('/^[0-9]+-[0-9]+-[0-9]+$/', $date)) {
+            return $date;
+        } else if(preg_match('/^[0-9]+-[0-9]+$/', $date)) {
+            return $date . '-' . $dayAppend;
+        } else if(preg_match('/^[0-9]+$/', $date)) {
+            return $date . '-' . $monthAppend . '-' . $dayAppend;
+        } else {
+            return '';
+        }
+    }
+
     public static function cleanObjectNumber($nr)
     {
         // Patterns, see https://github.com/PACKED-vzw/resolver/blob/master/resolver/util.py, def cleanID

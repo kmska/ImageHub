@@ -69,23 +69,50 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
         $this->resourceSpace = new ResourceSpace($this->getContainer());
 
-        if($resourceSpaceId != null) {
-            $this->resourceSpaceData = array($resourceSpaceId => $this->resourceSpace->getResourceSpaceData($resourceSpaceId));
-        } else {
-            $this->resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
-        }
+        $this->resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
 
         if ($this->resourceSpaceData === null) {
             return;
         }
+
         $this->resourceIds = array();
         $this->datahubData = array();
+        $idsToDo = array();
+        $idsDone = array();
 
         foreach ($this->resourceSpaceData as $resourceId => $oldData) {
-            if(!empty($oldData['sourceinvnr'])) {
+            if (!empty($oldData['sourceinvnr'])) {
                 $recordId = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($oldData['sourceinvnr']);
                 $this->resourceIds[$recordId] = $resourceId;
-                $this->getDatahubData($recordId);
+                if($resourceSpaceId == null || $resourceSpaceId != null && $resourceSpaceId == $resourceId) {
+                    $this->getDatahubData($recordId);
+
+                    $idsDone[] = $recordId;
+                    foreach ($this->relations[$recordId] as $relatedId => $relation) {
+                        if (!in_array($relatedId, $idsToDo)) {
+                            $idsToDo[] = $relatedId;
+                        }
+                    }
+                }
+            }
+        }
+
+        $checkedAll = false;
+        while(!$checkedAll) {
+            $checkedAll = true;
+            foreach($idsToDo as $index => $id) {
+                if(!in_array($id, $idsDone)) {
+                    $checkedAll = false;
+
+                    $this->getDatahubData($id);
+
+                    $idsDone[] = $id;
+                    foreach ($this->relations[$id] as $relatedId => $relation) {
+                        if (!in_array($relatedId, $idsToDo)) {
+                            $idsToDo[] = $relatedId;
+                        }
+                    }
+                }
             }
         }
 
@@ -102,6 +129,15 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
     function getDatahubData($recordId)
     {
+        // Add a reference to itself
+        $this->relations[$recordId] = array(
+            $recordId => array(
+                'related_work_type' => 'relation',
+                'record_id'         => $recordId,
+                'sort_order'        => 1
+            )
+        );
+
         $newData = array();
         try {
             if (!$this->datahubEndpoint)
@@ -147,14 +183,6 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                 }
             }
 
-
-            $this->relations[$recordId] = array(
-                $recordId => array(
-                    'related_work_type' => 'relation',
-                    'record_id'         => $recordId,
-                    'sort_order'        => 1
-                )
-            );
             // Find all related works (hasPart, isPartOf, relatedTo)
             $query = $this->buildXpath($this->relatedWorksXpath, $this->datahubLanguage);
             $domNodes = $xpath->query($query);
@@ -226,17 +254,16 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
         }
 
         // Combine earliest and latest date into one
-        //TODO clean up the CSV so this isn't necessary anymore
         if(array_key_exists('earliestdate', $newData)) {
             if(array_key_exists('latestdate', $newData)) {
-                $newData['datecreatedofartwork'] = $newData['earliestdate'] . '-01-01, ' . $newData['latestdate'] . '-12-31';
+                $newData['datecreatedofartwork'] = StringUtil::getDateRange($newData['earliestdate'], $newData['latestdate']);
                 unset($newData['latestdate']);
             } else {
-                $newData['datecreatedofartwork'] = $newData['earliestdate'] . '-01-01, ' . $newData['earliestdate'] . '-12-31';
+                $newData['datecreatedofartwork'] = StringUtil::getDateRange($newData['earliestdate'], $newData['earliestdate']);
             }
             unset($newData['earliestdate']);
         } else if(array_key_exists('latestdate', $newData)) {
-            $newData['datecreatedofartwork'] = $newData['latestdate'] . '-01-01, ' . $newData['latestdate'] . '-12-31';
+            $newData['datecreatedofartwork'] = StringUtil::getDateRange($newData['latestdate'], $newData['latestdate']);
             unset($newData['latestdate']);
         }
 
@@ -361,7 +388,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
             $relations = '';
             foreach($this->relations[$recordId] as $k => $v) {
-                if(array_key_exists($recordId, $this->resourceIds)) {
+                if(array_key_exists($k, $this->resourceIds)) {
                     $relations .= (empty($relations) ? '' : '\n') . $this->resourceIds[$k];
                 }
             }
@@ -377,7 +404,16 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
     function updateResourceSpaceFields($recordId, $newData)
     {
+        if(!array_key_exists($recordId, $this->resourceIds)) {
+            return;
+        }
+
         $resourceId = $this->resourceIds[$recordId];
+
+        if(!array_key_exists($resourceId, $this->resourceSpaceData)) {
+            return;
+        }
+
         $oldData = $this->resourceSpaceData[$resourceId];
 
         $updatedFields = 0;
