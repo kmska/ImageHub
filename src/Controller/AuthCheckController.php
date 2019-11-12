@@ -12,6 +12,7 @@ namespace App\Controller;
 use App\Utils\Authenticator;
 use SimpleSAML\Auth\Simple;
 use Symfony\Bundle\FrameworkBundle\Controller\AbstractController;
+use Symfony\Component\HttpFoundation\Request;
 use Symfony\Component\HttpFoundation\Response;
 use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
@@ -21,7 +22,7 @@ class AuthCheckController extends AbstractController
     /**
      * @Route("/authcheck", name="authcheck")
      */
-    public function authenticateAction()
+    public function authenticateAction(Request $request)
     {
         $adfsRequirement = $this->getParameter('adfs_requirements');
 

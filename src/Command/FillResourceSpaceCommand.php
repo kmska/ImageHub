@@ -70,6 +70,7 @@ class FillResourceSpaceCommand extends ContainerAwareCommand
                     echo 'Wrong column count: should be ' . count($columns) . ', is ' . count($row) . ' at row ' . $i;
 //                    $this->logger->error('Wrong column count: should be ' . count($columns) . ', is ' . count($row) . ' at row ' . $i);
                 }
+                //TODO trim headers
                 $line = array_combine($columns, $row);
 
                 $csvData[] = $line;

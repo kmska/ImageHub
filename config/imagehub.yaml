@@ -53,6 +53,8 @@ parameters:
       private_folder: 'private%2F'
 
     authentication_url: 'https://imagehub.kmska.be/public/authenticate'
+    authentication_whitelist:
+      - '127.0.0.1'
     authentication_service_description:
       confirmLabel: 'Login'
       description: 'The Royal Museum of Fine Arts Antwerp requires that you log in with your museum account to view this content.'
@@ -67,8 +69,3 @@ parameters:
       sourceinvnr: 'Object ID'
       description: 'Description'
       publisher: 'Credit Line'
-
-
-
-
-

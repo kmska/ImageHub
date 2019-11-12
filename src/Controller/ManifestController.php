@@ -23,11 +23,22 @@ class ManifestController extends AbstractController
             return new Response('Sorry, the requested document does not exist.', 404);
         } else {
             $authenticated = true;
+            $whitelist = $this->getParameter('authentication_whitelist');
+            $whitelisted = false;
+            if($request->getClientIp() != null) {
+                if(in_array($request->getClientIp(), $whitelist)) {
+                    $whitelisted = true;
+                    $authenticated = true;
+                }
+            }
+
             $data = json_decode($manifest->getData(), true);
-            if (array_key_exists('service', $data)) {
-                if(array_key_exists('@id', $data['service'])) {
-                    if(strpos($data['service']['@id'], 'auth') > -1) {
-                        $authenticated = false;
+            if(!$whitelisted) {
+                if (array_key_exists('service', $data)) {
+                    if (array_key_exists('@id', $data['service'])) {
+                        if (strpos($data['service']['@id'], 'auth') > -1) {
+                            $authenticated = false;
+                        }
                     }
                 }
             }
