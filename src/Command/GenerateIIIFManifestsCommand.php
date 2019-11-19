@@ -66,15 +66,18 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         if($resourceSpaceId != null) {
             $resourceSpaceData = array($resourceSpaceId => $this->resourceSpace->getResourceSpaceData($resourceSpaceId));
             if($resourceSpaceData != null) {
+                $related = array();
                 if(array_key_exists('relatedrecords', $resourceSpaceData[$resourceSpaceId])) {
-                    if(!empty($resourceSpaceData[$resourceSpaceId]['relatedrecords'])) {
-                        foreach (explode(PHP_EOL, $resourceSpaceData[$resourceSpaceId]['relatedrecords']) as $key => $id) {
-                            $resourceSpaceData[$id] = $this->resourceSpace->getResourceSpaceData($id);
-                        }
-                    }
+                    $related = explode(PHP_EOL, $resourceSpaceData[$resourceSpaceId]['relatedrecords']);
+                }
+                if(!in_array($resourceSpaceId, $related)) {
+                    $related[] = $resourceSpaceId;
+                }
+                foreach ($related as $key => $id) {
+                    $resourceSpaceData[$id] = $this->resourceSpace->getResourceSpaceData($id);
                 }
             }
-            // Don't create a top-level collection because we're only generating a single manifest
+            // Don't create a top-level collection because we're only generating a single manifest (or a few manifests)
             $this->createTopLevelCollection = false;
         } else {
             $resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
@@ -164,6 +167,10 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
         // Top-level collection containing a link to all manifests
         $manifests = array();
+
+        if($this->createTopLevelCollection) {
+            $this->deleteAllManifests($em);
+        }
 
         foreach($this->imagehubData as $resourceId => $data) {
 
@@ -259,7 +266,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $manifest['service'] = $this->getAuthenticationService();
             }
 
-            $this->deleteManifest($em, $manifestId);
+            if(!$this->createTopLevelCollection) {
+                $this->deleteManifest($em, $manifestId);
+            }
 
             $manifestDocument = $this->storeManifest($em, $manifest, $manifestId);
 
@@ -406,6 +415,15 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             );
         }
         return array($manifestSequence);
+    }
+
+    private function deleteAllManifests(EntityManagerInterface $em)
+    {
+        $qb = $em->createQueryBuilder();
+        $query = $qb->delete(IIIfManifest::class, 'manifest')
+            ->getQuery();
+        $query->execute();
+        $em->flush();
     }
 
     private function deleteManifest(EntityManagerInterface $em, $manifestId)
