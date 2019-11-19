@@ -6,11 +6,16 @@ use App\Entity\IIIfManifest;
 use App\ResourceSpace\ResourceSpace;
 use Doctrine\ORM\EntityManagerInterface;
 use Exception;
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Console\Command\Command;
+use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
-class GenerateIIIFManifestsCommand extends ContainerAwareCommand
+class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInterface, LoggerAwareInterface
 {
     private $verbose;
     private $cantaloupeUrl;
@@ -19,13 +24,28 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
     private $imagehubData;
 
     private $serviceUrl;
+    private $createTopLevelCollection;
 
     protected function configure()
     {
         $this
             ->setName('app:generate-iiif-manifests')
+            ->addArgument('rs_id', InputArgument::OPTIONAL, 'The ID (ref) of the resource in ResourceSpace for which we want to generate a IIIF manifest')
             ->setDescription('')
             ->setHelp('');
+    }
+
+    /**
+     * Sets the container.
+     */
+    public function setContainer(ContainerInterface $container = null)
+    {
+        $this->container = $container;
+    }
+
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
     }
 
     protected function execute(InputInterface $input, OutputInterface $output)
@@ -33,20 +53,46 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
         $this->verbose = $input->getOption('verbose');
 
         // Make sure the service URL name ends with a trailing slash
-        $this->serviceUrl = rtrim($this->getContainer()->getParameter('service_url'), '/') . '/';
+        $this->serviceUrl = rtrim($this->container->getParameter('service_url'), '/') . '/';
 
-        $this->cantaloupeUrl = $this->getContainer()->getParameter('cantaloupe_url');
-        $this->resourceSpace = new ResourceSpace($this->getContainer());
-        $resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
+        $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
+        $this->resourceSpace = new ResourceSpace($this->container);
+
+        $resourceSpaceId = $input->getArgument('rs_id');
+        if(!preg_match('/^[0-9]+$/', $resourceSpaceId)) {
+            $resourceSpaceId = null;
+        }
+
+        if($resourceSpaceId != null) {
+            $resourceSpaceData = array($resourceSpaceId => $this->resourceSpace->getResourceSpaceData($resourceSpaceId));
+            if($resourceSpaceData != null) {
+                if(array_key_exists('relatedrecords', $resourceSpaceData[$resourceSpaceId])) {
+                    if(!empty($resourceSpaceData[$resourceSpaceId]['relatedrecords'])) {
+                        foreach (explode(PHP_EOL, $resourceSpaceData[$resourceSpaceId]['relatedrecords']) as $key => $id) {
+                            $resourceSpaceData[$id] = $this->resourceSpace->getResourceSpaceData($id);
+                        }
+                    }
+                }
+            }
+            // Don't create a top-level collection because we're only generating a single manifest
+            $this->createTopLevelCollection = false;
+        } else {
+            $resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
+            $this->createTopLevelCollection = true;
+        }
+
+        if($resourceSpaceData == null) {
+            return;
+        }
 
         $this->imagehubData = array();
 
-        $metadataFields = $this->getContainer()->getParameter('iiif_metadata_fields');
+        $metadataFields = $this->container->getParameter('iiif_metadata_fields');
 
-        $publicUse = $this->getContainer()->getParameter('public_use');
+        $publicUse = $this->container->getParameter('public_use');
         $this->addExtraFields($resourceSpaceData, $metadataFields, $publicUse);
 
-        $em = $this->getContainer()->get('doctrine')->getManager();
+        $em = $this->container->get('doctrine')->getManager();
         $this->generateAndStoreManifests($em);
     }
 
@@ -100,22 +146,21 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json');
             $data = json_decode($jsonData);
             if($this->verbose) {
-                echo 'Retrieved image ' . $resourceId . ' from Cantaloupe' . PHP_EOL;
-//                $this->logger->info('Retrieved image ' . $resourceId . ' from Cantaloupe');
+//                echo 'Retrieved image ' . $resourceId . ' from Cantaloupe' . PHP_EOL;
+                $this->logger->info('Retrieved image ' . $resourceId . ' from Cantaloupe');
             }
             return array('height' => $data->height, 'width' => $data->width);
         } catch(Exception $e) {
-            echo $e->getMessage();
-//            $this->logger->error($e->getMessage());
-            // TODO proper error reporting
+//            echo $e->getMessage() . PHP_EOL;
+            $this->logger->error($e->getMessage());
         }
         return null;
     }
 
     private function generateAndStoreManifests(EntityManagerInterface $em)
     {
-        $validate = $this->getContainer()->getParameter('validate_manifests');
-        $validatorUrl = $this->getContainer()->getParameter('validator_url');
+        $validate = $this->container->getParameter('validate_manifests');
+        $validatorUrl = $this->container->getParameter('validator_url');
 
         // Top-level collection containing a link to all manifests
         $manifests = array();
@@ -225,8 +270,8 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             if($validate) {
                 $valid = $this->validateManifest($validatorUrl, $manifestId);
                 if (!$valid) {
-//                    $this->logger->error('Manifest ' . $manifestId . ' is not valid.');
-                    echo 'Manifest ' . $manifestId . ' is not valid.' . PHP_EOL;
+//                    echo 'Manifest ' . $manifestId . ' is not valid.' . PHP_EOL;
+                    $this->logger->error('Manifest ' . $manifestId . ' is not valid.');
                     $em->remove($manifestDocument);
                     $em->flush();
                 }
@@ -235,8 +280,8 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
 
             if($valid) {
                 if($this->verbose) {
-                    echo 'Generated manifest ' . $manifestId . ' for resource ' . $resourceId . PHP_EOL;
-//                    $this->logger->info('Generated manifest ' . $manifestId . ' for data pid ' . $dataPid);
+//                    echo 'Generated manifest ' . $manifestId . ' for resource ' . $resourceId . PHP_EOL;
+                    $this->logger->info('Generated manifest ' . $manifestId . ' for resource ' . $resourceId);
                 }
 
                 // Add to manifests array to add to the top-level collection
@@ -254,42 +299,43 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
         //TODO do we actually need a top-level manifest?
         // If so, we need to store the 'label' of each manifest separately and then do a SELECT to get all ID's and labels for the top-level manifest
 
+        if($this->createTopLevelCollection && count($manifests) > 0) {
+            // Generate the top-level collection and store it in mongoDB
+            $collectionId = $this->serviceUrl . 'collection/top';
+            $collection = array(
+                '@context' => 'http://iiif.io/api/presentation/2/context.json',
+                '@id' => $collectionId,
+                '@type' => 'sc:Collection',
+                'label' => 'Top Level Collection for Imagehub',
+                'viewingHint' => 'top',
+                'description' => 'This collection lists all the IIIF manifests available in this Imagehub instance',
+                'manifests' => $manifests
+            );
 
-        // Generate the top-level collection and store it in mongoDB
-        $collectionId = $this->serviceUrl . 'collection/top';
-        $collection = array(
-            '@context' => 'http://iiif.io/api/presentation/2/context.json',
-            '@id' => $collectionId,
-            '@type' => 'sc:Collection',
-            'label' => 'Top Level Collection for Imagehub',
-            'viewingHint' => 'top',
-            'description' => 'This collection lists all the IIIF manifests available in this Imagehub instance',
-            'manifests' => $manifests
-        );
+            $this->deleteManifest($em, $collectionId);
 
-        $this->deleteManifest($em, $collectionId);
+            $manifestDocument = $this->storeManifest($em, $collection, $collectionId);
 
-        $manifestDocument = $this->storeManifest($em, $collection, $collectionId);
-
-        $valid = true;
-        if($validate) {
-            $valid = $this->validateManifest($validatorUrl, $collectionId);
-            if (!$valid) {
-                echo 'Top-level collection ' . $collectionId . ' is not valid.' . PHP_EOL;
-//                $this->logger->error('Top-level collection ' . $collectionId . ' is not valid.');
-                $em->remove($manifestDocument);
-                $em->flush();
+            $valid = true;
+            if ($validate) {
+                $valid = $this->validateManifest($validatorUrl, $collectionId);
+                if (!$valid) {
+//                    echo 'Top-level collection ' . $collectionId . ' is not valid.' . PHP_EOL;
+                    $this->logger->error('Top-level collection ' . $collectionId . ' is not valid.');
+                    $em->remove($manifestDocument);
+                    $em->flush();
+                }
             }
-        }
-        $em->clear();
+            $em->clear();
 
-        if($this->verbose) {
-            if ($valid) {
-                echo 'Created and stored top-level collection' . PHP_EOL;
-//                $this->logger->info('Created and stored top-level collection');
+            if ($this->verbose) {
+                if ($valid) {
+//                    echo 'Created and stored top-level collection' . PHP_EOL;
+                    $this->logger->info('Created and stored top-level collection');
+                }
+//                echo 'Done, created and stored ' . count($manifests) . ' manifests.' . PHP_EOL;
+                $this->logger->info('Done, created and stored ' . count($manifests) . ' manifests.');
             }
-            echo 'Done, created and stored ' . count($manifests) . ' manifests.' . PHP_EOL;
-//            $this->logger->info('Done, created and stored ' . $manifests . ' manifests.');
         }
     }
 
@@ -334,9 +380,9 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
     {
         $arr = array(
             '@context' => 'http://iiif.io/api/auth/1/context.json',
-            '@id'      => $this->getContainer()->getParameter('authentication_url'),
+            '@id'      => $this->container->getParameter('authentication_url'),
         );
-        foreach($this->getContainer()->getParameter('authentication_service_description') as $key => $value) {
+        foreach($this->container->getParameter('authentication_service_description') as $key => $value) {
             $arr[$key] = $value;
         }
         return $arr;
@@ -393,24 +439,24 @@ class GenerateIIIFManifestsCommand extends ContainerAwareCommand
             $valid = $validatorResult->okay == 1;
             if (!empty($validatorResult->warnings)) {
                 foreach ($validatorResult->warnings as $warning) {
-                    echo 'Manifest ' . $manifestId . ' warning: ' . $warning . PHP_EOL;
-//                    $this->logger->warning('Manifest ' . $manifestId . ' warning: ' . $warning);
+//                    echo 'Manifest ' . $manifestId . ' warning: ' . $warning . PHP_EOL;
+                    $this->logger->warning('Manifest ' . $manifestId . ' warning: ' . $warning);
                 }
             }
             if (!empty($validatorResult->error)) {
                 if ($validatorResult->error != 'None') {
                     $valid = false;
-                    echo 'Manifest ' . $manifestId . ' error: ' . $validatorResult->error . PHP_EOL;
-//                    $this->logger->error('Manifest ' . $manifestId . ' error: ' . $validatorResult->error);
+//                    echo 'Manifest ' . $manifestId . ' error: ' . $validatorResult->error . PHP_EOL;
+                    $this->logger->error('Manifest ' . $manifestId . ' error: ' . $validatorResult->error);
                 }
             }
         } catch (Exception $e) {
             if($this->verbose) {
-                echo 'Error validating manifest ' . $manifestId . ': ' . $e . PHP_EOL;
-//                $this->logger->error('Error validating manifest ' . $manifestId . ': ' . $e);
+//                echo 'Error validating manifest ' . $manifestId . ': ' . $e . PHP_EOL;
+                $this->logger->error('Error validating manifest ' . $manifestId . ': ' . $e);
             } else {
-                echo 'Error validating manifest ' . $manifestId . ': ' . $e->getMessage() . PHP_EOL;
-//                $this->logger->error('Error validating manifest ' . $manifestId . ': ' . $e->getMessage());
+//                echo 'Error validating manifest ' . $manifestId . ': ' . $e->getMessage() . PHP_EOL;
+                $this->logger->error('Error validating manifest ' . $manifestId . ': ' . $e->getMessage());
             }
         }
         return $valid;

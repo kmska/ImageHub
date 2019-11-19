@@ -9,12 +9,16 @@ use DOMXPath;
 use Phpoaipmh\Endpoint;
 use Phpoaipmh\Exception\HttpException;
 use Phpoaipmh\Exception\OaipmhException;
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Psr\Log\LoggerAwareInterface;
+use Psr\Log\LoggerInterface;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
-class DatahubToResourceSpaceCommand extends ContainerAwareCommand
+class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInterface, LoggerAwareInterface
 {
     private $datahubRecordIdPrefix;
 
@@ -45,6 +49,16 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             ->setHelp('');
     }
 
+    public function setContainer(ContainerInterface $container = null)
+    {
+        $this->container = $container;
+    }
+
+    public function setLogger(LoggerInterface $logger)
+    {
+        $this->logger = $logger;
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $this->verbose = $input->getOption('verbose');
@@ -56,22 +70,23 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
 
         $this->datahubUrl = $input->getArgument('url');
         if (!$this->datahubUrl) {
-            $this->datahubUrl = $this->getContainer()->getParameter('datahub_url');
+            $this->datahubUrl = $this->container->getParameter('datahub_url');
         }
 
-        $this->datahubRecordIdPrefix = $this->getContainer()->getParameter('datahub_record_id_prefix');
+        $this->datahubRecordIdPrefix = $this->container->getParameter('datahub_record_id_prefix');
 
-        $this->datahubLanguage = $this->getContainer()->getParameter('datahub_language');
-        $this->namespace = $this->getContainer()->getParameter('datahub_namespace');
-        $this->metadataPrefix = $this->getContainer()->getParameter('datahub_metadataprefix');
-        $this->relatedWorksXpath = $this->getContainer()->getParameter('datahub_related_works_xpath');
-        $this->dataDefinition = $this->getContainer()->getParameter('datahub_data_definition');
+        $this->datahubLanguage = $this->container->getParameter('datahub_language');
+        $this->namespace = $this->container->getParameter('datahub_namespace');
+        $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
+        $this->relatedWorksXpath = $this->container->getParameter('datahub_related_works_xpath');
+        $this->dataDefinition = $this->container->getParameter('datahub_data_definition');
 
-        $this->resourceSpace = new ResourceSpace($this->getContainer());
+        $this->resourceSpace = new ResourceSpace($this->container);
 
         $this->resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
 
         if ($this->resourceSpaceData === null) {
+            $this->logger->error( 'Error: no resourcespace data.');
             return;
         }
 
@@ -116,6 +131,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             }
         }
 
+
         if (count($this->datahubData) > 0) {
 
             $this->addAllRelations();
@@ -124,6 +140,8 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             foreach ($this->datahubData as $recordId => $newData) {
                 $this->updateResourceSpaceFields($recordId, $newData);
             }
+        } else {
+            $this->logger->warning('Warning: no data found.');
         }
     }
 
@@ -245,12 +263,12 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             }
         }
         catch(OaipmhException $e) {
-            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
-//            $this->logger->error('Resource ' . $resourceId . ' (record id ' . $recordId . ') error: ' . $e);
+//            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
+            $this->logger->error('Record id ' . $recordId . ' error: ' . $e);
         }
         catch(HttpException $e) {
-            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
-//            $this->logger->error('Resource ' . $resourceId . ' (record id ' . $recordId . ') error: ' . $e);
+//            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
+            $this->logger->error('Record id ' . $recordId . ' error: ' . $e);
         }
 
         // Combine earliest and latest date into one
@@ -389,7 +407,7 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             $relations = '';
             foreach($this->relations[$recordId] as $k => $v) {
                 if(array_key_exists($k, $this->resourceIds)) {
-                    $relations .= (empty($relations) ? '' : '\n') . $this->resourceIds[$k];
+                    $relations .= (empty($relations) ? '' : PHP_EOL) . $this->resourceIds[$k];
                 }
             }
 
@@ -421,8 +439,8 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             $update = false;
             if(!array_key_exists($key, $oldData)) {
                 if($this->verbose) {
-                    echo 'Field ' . $key . ' does not exist, should be ' . $value . PHP_EOL;
-//                    $this->logger->error('Field ' . $key . ' does not exist, should be ' . $value);
+//                    echo 'Field ' . $key . ' does not exist, should be ' . $value . PHP_EOL;
+                    $this->logger->error('Field ' . $key . ' does not exist, should be ' . $value);
                 }
                 $update = true;
             } else if($key == 'keywords') {
@@ -444,16 +462,16 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
                 }
                 if(!$hasAll) {
                     if($this->verbose) {
-                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-//                        $this->logger->error('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
+//                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
+                        $this->logger->error('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
                     }
                     $update = true;
                 }
             } else {
                 if($oldData[$key] != $value) {
                     if($this->verbose) {
-                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-//                        $this->logger->error('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
+//                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
+                        $this->logger->error('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
                     }
                     $update = true;
                 }
@@ -461,18 +479,17 @@ class DatahubToResourceSpaceCommand extends ContainerAwareCommand
             if($update) {
                 $result = $this->resourceSpace->updateField($resourceId, $key, $value);
                 if($result !== 'true') {
-                    echo 'Error updating field ' . $key . ' for resource id ' . $resourceId . ':' . PHP_EOL . $result . PHP_EOL;
-//                    $this->logger->error('Error updating field ' . $key . ' for resource id ' . $resourceId . ':' . PHP_EOL . $result);
+//                    echo 'Error updating field ' . $key . ' for resource id ' . $resourceId . ':' . PHP_EOL . $result . PHP_EOL;
+                    $this->logger->error('Error updating field ' . $key . ' for resource id ' . $resourceId . ':' . PHP_EOL . $result);
                 } else {
                     $updatedFields++;
                 }
             }
         }
-        if($this->verbose && $updatedFields > 0) {
-            echo 'Updated ' . $updatedFields . ' fields for resource id ' . $resourceId . PHP_EOL;
-//            $this->logger->info('Updated ' . $updatedFields . ' fields for image ' . $fullImagePath);
+        if($this->verbose) {
+//            echo 'Updated ' . $updatedFields . ' fields for resource id ' . $resourceId . PHP_EOL;
+            $this->logger->info('Updated ' . $updatedFields . ' fields for resource id ' . $resourceId);
         }
-
     }
 
     // Build the xpath based on the provided namespace
