@@ -28,6 +28,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $metadataPrefix;
     private $dataDefinition;
     private $relatedWorksXpath;
+    private $publicUse;
 
     private $datahubEndpoint;
     private $verbose;
@@ -38,6 +39,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $datahubData;
     private $resourceIds;
     private $relations;
+    private $publicImages;
 
     protected function configure()
     {
@@ -64,7 +66,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->verbose = $input->getOption('verbose');
 
         $resourceSpaceId = $input->getArgument('rs_id');
-        if(!preg_match('/^[0-9]+$/', $resourceSpaceId)) {
+        if($resourceSpaceId != null && !preg_match('/^[0-9]+$/', $resourceSpaceId)) {
             $resourceSpaceId = null;
         }
 
@@ -80,6 +82,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
         $this->relatedWorksXpath = $this->container->getParameter('datahub_related_works_xpath');
         $this->dataDefinition = $this->container->getParameter('datahub_data_definition');
+        $this->publicUse = $this->container->getParameter('public_use');
 
         $this->resourceSpace = new ResourceSpace($this->container);
 
@@ -92,13 +95,21 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
 
         $this->resourceIds = array();
         $this->datahubData = array();
+        $this->publicImages = array();
         $idsToDo = array();
         $idsDone = array();
 
         foreach ($this->resourceSpaceData as $resourceId => $oldData) {
             if (!empty($oldData['sourceinvnr'])) {
                 $recordId = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($oldData['sourceinvnr']);
-                $this->resourceIds[$recordId] = $resourceId;
+                if ($this->resourceSpace->isPublicuse($oldData, $this->publicUse)) {
+                    $this->publicImages[] = $resourceId;
+                }
+                if(!array_key_exists($recordId, $this->resourceIds)) {
+                    $this->resourceIds[$recordId] = array($resourceId);
+                } else {
+                    $this->resourceIds[$recordId][] = $resourceId;
+                }
                 if($resourceSpaceId == null || $resourceSpaceId != null && $resourceSpaceId == $resourceId) {
                     $this->getDatahubData($recordId);
 
@@ -138,7 +149,37 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $this->fixSortOrders();
 
             foreach ($this->datahubData as $recordId => $newData) {
-                $this->updateResourceSpaceFields($recordId, $newData);
+                if(array_key_exists($recordId, $this->resourceIds)) {
+                    foreach($this->resourceIds[$recordId] as $resourceId) {
+
+                        $isThisPublic = in_array($resourceId, $this->publicImages);
+
+                        $relations = '';
+                        foreach($this->relations[$recordId] as $k => $v) {
+                            if(array_key_exists($k, $this->resourceIds)) {
+                                foreach($this->resourceIds[$k] as $otherResourceId) {
+                                    if(array_key_exists($otherResourceId, $this->resourceSpaceData)) {
+                                        $isOtherPublic = in_array($otherResourceId, $this->publicImages);
+                                        // Add relations only when one of the following coditions is met:
+                                        // - The 'related' resource is actually itself
+                                        // - Both resources are for public use (relations between works)
+                                        // - This resource is not meant for publication, but the other is (public images added to research images)
+                                        if($resourceId == $otherResourceId
+                                            || $isThisPublic && $isOtherPublic
+                                            || !$isThisPublic && $isOtherPublic
+                                                && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
+                                            $relations .= (empty($relations) ? '' : PHP_EOL) . $otherResourceId;
+                                        }
+                                    }
+                                }
+                            }
+                        }
+
+                        $newData['relatedrecords'] = $relations;
+
+                        $this->updateResourceSpaceFields($resourceId, $newData);
+                    }
+                }
             }
         } else {
             $this->logger->warning('Warning: no data found.');
@@ -403,15 +444,6 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 uasort($this->relations[$recordId], array('App\Command\DatahubToResourceSpaceCommand', 'sortRelatedWorks'));
 
             }
-
-            $relations = '';
-            foreach($this->relations[$recordId] as $k => $v) {
-                if(array_key_exists($k, $this->resourceIds)) {
-                    $relations .= (empty($relations) ? '' : PHP_EOL) . $this->resourceIds[$k];
-                }
-            }
-
-            $this->datahubData[$recordId]['relatedrecords'] = $relations;
         }
     }
 
@@ -420,14 +452,8 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         return $a['sort_order'] - $b['sort_order'];
     }
 
-    function updateResourceSpaceFields($recordId, $newData)
+    function updateResourceSpaceFields($resourceId, $newData)
     {
-        if(!array_key_exists($recordId, $this->resourceIds)) {
-            return;
-        }
-
-        $resourceId = $this->resourceIds[$recordId];
-
         if(!array_key_exists($resourceId, $this->resourceSpaceData)) {
             return;
         }

@@ -102,18 +102,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private function addExtraFields($resourceSpaceData, $metadataFields, $publicUse)
     {
         foreach($resourceSpaceData as $resourceId => $data) {
-            $public = false;
-            if(!empty($publicUse)) {
-                if (array_key_exists($publicUse['key'], $data)) {
-                    $expl = explode(',', $data[$publicUse['key']]);
-                    foreach ($expl as $val) {
-                        if ($val == $publicUse['value']) {
-                            $public = true;
-                            break;
-                        }
-                    }
-                }
-            }
 
             if($public) {
                 $url = $publicUse['public_folder'];

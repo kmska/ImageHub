@@ -88,13 +88,30 @@ class ResourceSpace
         $allResources = $this->doApiCall('do_search&param1=\'\'');
 
         if ($allResources == 'Invalid signature') {
-            echo 'Error: invalid ResourceSpace API key. Please paste the key found in the ResourceSpace user management into app/config/parameters.yml.';
+            echo 'Error: invalid ResourceSpace API key. Please paste the key found in the ResourceSpace user management into app/config/parameters.yml.' . PHP_EOL;
 //            $this->logger->error('Error: invalid ResourceSpace API key. Please paste the key found in the ResourceSpace user management into app/config/parameters.yml.');
             return NULL;
         }
 
         $resources = json_decode($allResources, true);
         return $resources;
+    }
+
+    public function isPublicuse($data, $publicUse)
+    {
+        $public = false;
+        if(!empty($publicUse)) {
+            if (array_key_exists($publicUse['key'], $data)) {
+                $expl = explode(',', $data[$publicUse['key']]);
+                foreach ($expl as $val) {
+                    if ($val == $publicUse['value']) {
+                        $public = true;
+                        break;
+                    }
+                }
+            }
+        }
+        return $public;
     }
 
     private function getResourceInfo($id)
