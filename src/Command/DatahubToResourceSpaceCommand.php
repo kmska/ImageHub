@@ -166,8 +166,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                                         // - This resource is not meant for publication, but the other is (public images added to research images)
                                         if($resourceId == $otherResourceId
                                             || $isThisPublic && $isOtherPublic
-                                            || !$isThisPublic && $isOtherPublic
-                                                && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
+                                            || !$isThisPublic && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
                                             $relations .= (empty($relations) ? '' : PHP_EOL) . $otherResourceId;
                                         }
                                     }

@@ -42,7 +42,7 @@ class GenerateIIIFManifestsController extends AbstractController implements Logg
             $content = $output->fetch();
 
 
-            return new Response($content, 200);
+            return new Response('', 200);
         } else {
             return new Response('Forbidden', 403);
         }
