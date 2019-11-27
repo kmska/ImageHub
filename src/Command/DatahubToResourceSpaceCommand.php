@@ -102,7 +102,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         foreach ($this->resourceSpaceData as $resourceId => $oldData) {
             if (!empty($oldData['sourceinvnr'])) {
                 $recordId = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($oldData['sourceinvnr']);
-                if ($this->resourceSpace->isPublicuse($oldData, $this->publicUse)) {
+                if ($this->resourceSpace->isPublicUse($oldData, $this->publicUse)) {
                     $this->publicImages[] = $resourceId;
                 }
                 if(!array_key_exists($recordId, $this->resourceIds)) {

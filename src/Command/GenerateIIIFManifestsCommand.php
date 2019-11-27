@@ -19,6 +19,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 {
     private $verbose;
     private $cantaloupeUrl;
+    private $publicUse;
 
     private $resourceSpace;
     private $imagehubData;
@@ -92,21 +93,22 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
         $metadataFields = $this->container->getParameter('iiif_metadata_fields');
 
-        $publicUse = $this->container->getParameter('public_use');
-        $this->addExtraFields($resourceSpaceData, $metadataFields, $publicUse);
+        $this->publicUse = $this->container->getParameter('public_use');
+        $this->addExtraFields($resourceSpaceData, $metadataFields);
 
         $em = $this->container->get('doctrine')->getManager();
         $this->generateAndStoreManifests($em);
     }
 
-    private function addExtraFields($resourceSpaceData, $metadataFields, $publicUse)
+    private function addExtraFields($resourceSpaceData, $metadataFields)
     {
         foreach($resourceSpaceData as $resourceId => $data) {
 
-            if($public) {
-                $url = $publicUse['public_folder'];
+            $isPublic = $this->resourceSpace->isPublicUse($data, $this->publicUse);
+            if($isPublic) {
+                $url = $this->publicUse['public_folder'];
             } else {
-                $url = $publicUse['private_folder'];
+                $url = $this->publicUse['private_folder'];
             }
             $url .= $resourceId;
 
@@ -124,7 +126,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
                 $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
                 $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
-                $imageData['public_use'] = $public;
+                $imageData['public_use'] = $isPublic;
 
                 $this->imagehubData[$resourceId] = $imageData;
             }

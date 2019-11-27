@@ -97,7 +97,7 @@ class ResourceSpace
         return $resources;
     }
 
-    public function isPublicuse($data, $publicUse)
+    public function isPublicUse($data, $publicUse)
     {
         $public = false;
         if(!empty($publicUse)) {
