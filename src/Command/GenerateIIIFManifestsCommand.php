@@ -76,7 +76,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     if(array_key_exists('relatedrecords', $data)) {
                         $related = explode(PHP_EOL, $data['relatedrecords']);
                         foreach($related as $relId) {
-                            if(array_key_exists($relId, $resourceSpaceData) && !array_key_exists($relId, $resourceSpaceData)) {
+                            if(array_key_exists($relId, $allResourceSpaceData) && !array_key_exists($relId, $resourceSpaceData)) {
                                 $resourceSpaceData[$relId] = $allResourceSpaceData[$relId];
                             }
                         }
