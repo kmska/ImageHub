@@ -24,6 +24,7 @@ class DatahubToResourceSpaceController extends AbstractController implements Log
         $actualResourceSpaceApiKey = $this->getParameter('resourcespace_api_key');
         if($resourceSpaceApiKey == $actualResourceSpaceApiKey) {
 
+            $debug = $request->query->get('debug');
             $ref = $request->query->get('ref');
 
             $input = new ArrayInput([
@@ -39,10 +40,12 @@ class DatahubToResourceSpaceController extends AbstractController implements Log
             } catch (\Exception $e) {
                 $this->logger->error($e);
             }
-            $content = $output->fetch();
+            $content = '';
+            if($debug) {
+                $content = $output->fetch();
+            }
 
-
-            return new Response('', 200);
+            return new Response($content, 200);
         } else {
             return new Response('Forbidden', 403);
         }
