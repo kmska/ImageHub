@@ -161,12 +161,11 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
 
                         $relations = '';
 
+                        $isThisPublic = in_array($resourceId, $this->publicImages);
                         $isThisRecommendedForPublication = in_array($resourceId, $this->recommendedImagesForPub);
-                        if(!$isThisRecommendedForPublication) {
+                        if($isThisPublic && !$isThisRecommendedForPublication) {
                             $relations = $resourceId;
                         } else {
-                            $isThisPublic = in_array($resourceId, $this->publicImages);
-
                             foreach ($this->relations[$recordId] as $k => $v) {
                                 if (array_key_exists($k, $this->resourceIds)) {
                                     foreach ($this->resourceIds[$k] as $otherResourceId) {
