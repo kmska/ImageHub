@@ -233,11 +233,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $isStartCanvas = $relatedRef == $resourceId;
 
                 $index++;
-                $canvasId = $data['canvas_base'] . '/canvas/' . $index . '.json';
+                $canvasId = $this->imagehubData[$relatedRef]['canvas_base'] . '/canvas/' . $index . '.json';
 //                $serviceId = $this->serviceUrl . $relatedRef;
-                $serviceId = $data['service_id'];
-                $imageUrl = $data['image_url'];
-                $publicUse = $data['public_use'];
+                $serviceId = $this->imagehubData[$relatedRef]['service_id'];
+                $imageUrl = $this->imagehubData[$relatedRef]['image_url'];
+                $publicUse = $this->imagehubData[$relatedRef]['public_use'];
                 if($isStartCanvas && $startCanvas == null) {
                     $startCanvas = $canvasId;
                     $thumbnail = $serviceId;
