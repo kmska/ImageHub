@@ -85,7 +85,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->relatedWorksXpath = $this->container->getParameter('datahub_related_works_xpath');
         $this->dataDefinition = $this->container->getParameter('datahub_data_definition');
         $this->publicUse = $this->container->getParameter('public_use');
-        $this->recommendedForPublication = $this->container->getParameter('recommended_image_for_public_use');
+        $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
 
         $this->resourceSpace = new ResourceSpace($this->container);
 
