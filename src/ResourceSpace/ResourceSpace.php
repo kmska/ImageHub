@@ -114,6 +114,19 @@ class ResourceSpace
         return $public;
     }
 
+    public function isRecommendedForPublication($data, $recommendedForPublication)
+    {
+        $forPublication = false;
+        if(!empty($recommendedForPublication)) {
+            if (array_key_exists($recommendedForPublication['key'], $data)) {
+                if(!empty($data[$recommendedForPublication['key']])) {
+                    $forPublication = true;
+                }
+            }
+        }
+        return $forPublication;
+    }
+
     private function getResourceInfo($id)
     {
         $data = $this->doApiCall('get_resource_field_data&param1=' . $id);

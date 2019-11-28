@@ -29,6 +29,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $dataDefinition;
     private $relatedWorksXpath;
     private $publicUse;
+    private $recommendedForPublication;
 
     private $datahubEndpoint;
     private $verbose;
@@ -40,6 +41,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $resourceIds;
     private $relations;
     private $publicImages;
+    private $recommendedImagesForPub;
 
     protected function configure()
     {
@@ -83,6 +85,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->relatedWorksXpath = $this->container->getParameter('datahub_related_works_xpath');
         $this->dataDefinition = $this->container->getParameter('datahub_data_definition');
         $this->publicUse = $this->container->getParameter('public_use');
+        $this->recommendedForPublication = $this->container->getParameter('recommended_image_for_public_use');
 
         $this->resourceSpace = new ResourceSpace($this->container);
 
@@ -96,6 +99,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->resourceIds = array();
         $this->datahubData = array();
         $this->publicImages = array();
+        $this->recommendedImagesForPub = array();
         $idsToDo = array();
         $idsDone = array();
 
@@ -104,6 +108,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 $recordId = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($oldData['sourceinvnr']);
                 if ($this->resourceSpace->isPublicUse($oldData, $this->publicUse)) {
                     $this->publicImages[] = $resourceId;
+                }
+                if ($this->resourceSpace->isRecommendedForPublication($oldData, $this->recommendedForPublication)) {
+                    $this->recommendedImagesForPub[] = $resourceId;
                 }
                 if(!array_key_exists($recordId, $this->resourceIds)) {
                     $this->resourceIds[$recordId] = array($resourceId);
@@ -152,22 +159,30 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 if(array_key_exists($recordId, $this->resourceIds)) {
                     foreach($this->resourceIds[$recordId] as $resourceId) {
 
-                        $isThisPublic = in_array($resourceId, $this->publicImages);
-
                         $relations = '';
-                        foreach($this->relations[$recordId] as $k => $v) {
-                            if(array_key_exists($k, $this->resourceIds)) {
-                                foreach($this->resourceIds[$k] as $otherResourceId) {
-                                    if(array_key_exists($otherResourceId, $this->resourceSpaceData)) {
-                                        $isOtherPublic = in_array($otherResourceId, $this->publicImages);
-                                        // Add relations only when one of the following coditions is met:
-                                        // - The 'related' resource is actually itself
-                                        // - Both resources are for public use (relations between works)
-                                        // - This resource is not meant for publication, but the other is (public images added to research images)
-                                        if($resourceId == $otherResourceId
-                                            || $isThisPublic && $isOtherPublic
-                                            || !$isThisPublic && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
-                                            $relations .= (empty($relations) ? '' : PHP_EOL) . $otherResourceId;
+
+                        $isThisRecommendedForPublication = in_array($resourceId, $this->recommendedImagesForPub);
+                        if(!$isThisRecommendedForPublication) {
+                            $relations = $resourceId;
+                        } else {
+                            $isThisPublic = in_array($resourceId, $this->publicImages);
+
+                            foreach ($this->relations[$recordId] as $k => $v) {
+                                if (array_key_exists($k, $this->resourceIds)) {
+                                    foreach ($this->resourceIds[$k] as $otherResourceId) {
+                                        if (array_key_exists($otherResourceId, $this->resourceSpaceData)) {
+                                            $isOtherPublic = in_array($otherResourceId, $this->publicImages);
+                                            $isOtherRecommendedForPublication = in_array($otherResourceId, $this->recommendedImagesForPub);
+                                            // Add relations only when one of the following coditions is met:
+                                            // - The 'related' resource is actually itself
+                                            // - Both resources are for public use (relations between works)
+                                            // - This resource is not public, but the other one is (public images added to research images)
+                                            if ($resourceId == $otherResourceId
+                                                || $isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
+                                                || !$isThisPublic && $isOtherRecommendedForPublication
+                                                    && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
+                                                $relations .= (empty($relations) ? '' : PHP_EOL) . $otherResourceId;
+                                            }
                                         }
                                     }
                                 }

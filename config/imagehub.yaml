@@ -53,6 +53,9 @@ parameters:
       public_folder: 'public%2F'
       private_folder: 'private%2F'
 
+    recommended_for_publication:
+      key: 'recommendedimageforpub'
+
     authentication_url: 'https://imagehub.kmska.be/public/authenticate'
     authentication_whitelist:
       - '127.0.0.1'
