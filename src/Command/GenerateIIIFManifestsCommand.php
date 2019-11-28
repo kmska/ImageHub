@@ -64,18 +64,34 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $resourceSpaceId = null;
         }
 
+        $resourceSpaceData = array();
+
         if($resourceSpaceId != null) {
-            $resourceSpaceData = array($resourceSpaceId => $this->resourceSpace->getResourceSpaceData($resourceSpaceId));
-            if($resourceSpaceData != null) {
-                $related = array();
-                if(array_key_exists('relatedrecords', $resourceSpaceData[$resourceSpaceId])) {
-                    $related = explode(PHP_EOL, $resourceSpaceData[$resourceSpaceId]['relatedrecords']);
+            $allResourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
+            foreach($allResourceSpaceData as $id => $data) {
+                $add = false;
+                if($id == $resourceSpaceId) {
+                    $add = true;
+                    // Also regenerate the manifests of all resources that this resource refers to
+                    if(array_key_exists('relatedrecords', $data[$id])) {
+                        $related = explode(PHP_EOL, $data[$resourceSpaceId]['relatedrecords']);
+                        foreach($related as $relId) {
+                            if(array_key_exists($relId, $resourceSpaceData) && !array_key_exists($relId, $resourceSpaceData)) {
+                                $resourceSpaceData[$relId] = $allResourceSpaceData[$relId];
+                            }
+                        }
+                    }
+                } else {
+                    // Also regenerate manifests of all resources that refer to this resources
+                    if(array_key_exists('relatedrecords', $data[$id])) {
+                        $related = explode(PHP_EOL, $data[$resourceSpaceId]['relatedrecords']);
+                    }
+                    if(in_array($resourceSpaceId, $related)) {
+                        $add = true;
+                    }
                 }
-                if(!in_array($resourceSpaceId, $related)) {
-                    $related[] = $resourceSpaceId;
-                }
-                foreach ($related as $key => $id) {
-                    $resourceSpaceData[$id] = $this->resourceSpace->getResourceSpaceData($id);
+                if($add && !array_key_exists($id, $resourceSpaceData)) {
+                    $resourceSpaceData[$id] = $data;
                 }
             }
             // Don't create a top-level collection because we're only generating a single manifest (or a few manifests)

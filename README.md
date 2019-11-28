@@ -40,12 +40,23 @@ A MySQL user is to be created with full access to this table. The username, pass
 
 ## Installation
 
-Clone this repository
+Clone this repository:
 ```
 git clone https://github.com/kmska/ImageHub.git Imagehub
 ```
 
-Install the Imagehub through [composer](https://getcomposer.org/)
+Edit any values according to your local setup in .env and config/imagehub.yaml. At the very least, the following values should be checked and edited where needed:
+In .env: 
+* DATABASE_URL=mysql://(user):(pass)@(host):(port)/(db_name)
+
+In config/imagehub.yaml:
+* Values necessary
+- resourcespace_api_url
+- 
+
+
+
+Install the Imagehub through [composer](https://getcomposer.org/):
 ```
 cd Imagehub
 composer install
