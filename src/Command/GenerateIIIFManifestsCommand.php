@@ -73,7 +73,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 if($id == $resourceSpaceId) {
                     $add = true;
                     // Also regenerate the manifests of all resources that this resource refers to
-                    if(array_key_exists('relatedrecords', $data[$id])) {
+                    if(array_key_exists('relatedrecords', $data)) {
                         $related = explode(PHP_EOL, $data[$resourceSpaceId]['relatedrecords']);
                         foreach($related as $relId) {
                             if(array_key_exists($relId, $resourceSpaceData) && !array_key_exists($relId, $resourceSpaceData)) {
@@ -83,7 +83,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     }
                 } else {
                     // Also regenerate manifests of all resources that refer to this resources
-                    if(array_key_exists('relatedrecords', $data[$id])) {
+                    if(array_key_exists('relatedrecords', $data)) {
                         $related = explode(PHP_EOL, $data[$resourceSpaceId]['relatedrecords']);
                     }
                     if(in_array($resourceSpaceId, $related)) {
