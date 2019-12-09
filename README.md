@@ -149,7 +149,7 @@ Once all is set up correctly, in theory all you need to do is upload images to R
 * Cleared for usage
 * Recommended image for publication
 
-However, you can also perform bulk uploads of images without providing an inventory number. In this case, you are to first upload a CSV file onto the Imagehub server. It is important that each header of this CSV file has the same name as the shorthand name of the metadata fields in ResourceSpace. Also beware of any leading or trailing characters in the CSV header.
+However, you can also perform bulk uploads of images without providing an inventory number. In this case, you can upload as many images to ResourceSpace as you like (keeping in mind to still set the Cleared for usage and Recommended image for publication fields) and then upload a CSV file onto the Imagehub server through FTP. It is important that each header of this CSV file has the same name as the shorthand name of the metadata fields in ResourceSpace. Also beware of any leading or trailing characters in the CSV header.
 
 The 'datecreatedofartwork' field should have the following format: 'yyyy-mm-dd, yyyy-mm-dd', incidating a first and last date. However, it may also be split up in two fields, 'datecreatedofartwork-start' and 'datecreatedofartwork-end', each of which may contain a date in 'yyyy', 'yyyy-mm' or 'yyyy-mm-dd' format. The command will then automatically merge the two fields into 'datecreatedofartwork' and append month/day values where needed.
 
@@ -170,4 +170,4 @@ After this, the following command will be called, also with the resource ID as p
 ```
 bin/console app:generate-iiif-manifests resource_id
 ```
-This will generate a IIIF manifest for the resource and any resources related to it.
+This will generate a IIIF manifest for the resource and any resources related to it, then store it in MySQL. The manifest can be accessed from a URL as such: https://imagehub.kmska.be/iiif/2/512/manifest.json, where '512' stands for the ID of the resource in ResourceSpace.
