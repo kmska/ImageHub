@@ -292,8 +292,14 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                             } else if($childNode->nodeName == $this->namespace . ':relatedWorkRelType') {
                                 $objects = $childNode->childNodes;
                                 foreach($objects as $object) {
-                                    if($object->nodeName == $this->namespace . ':conceptID') {
-                                        $relation = substr($object->nodeValue, strrpos($object->nodeValue, '/') + 1);
+                                    if($object->nodeName == $this->namespace . ':term') {
+                                        if($object->attributes) {
+                                            for($i = 0; $i < $object->attributes->length; $i++) {
+                                                if($object->attributes->item($i)->nodeName == $this->namespace . ':pref' && $object->attributes->item($i)->nodeValue == 'preferred') {
+                                                    $relation = $object->nodeValue;
+                                                }
+                                            }
+                                        }
                                     }
                                 }
                             }
