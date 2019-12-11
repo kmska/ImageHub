@@ -295,3 +295,14 @@ bash /opt/imagehub/bin/console app:datahub-to-resourcespace resource_id
 ```
 
 The Imagehub also provides the appropriate logging. Logs are stored in var/logs/.
+
+
+## Troubleshooting
+
+If you get any errors while uploading images, you may try the following:
+
+Execute the following command(s) from the command line to check for any errors:
+```
+bin/console app:datahub-to-resourcespace resource_id -v
+bin/console app:generate-iiif-manifests resource_id -v
+```
