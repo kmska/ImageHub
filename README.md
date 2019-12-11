@@ -171,3 +171,11 @@ After this, the following command will be called, also with the resource ID as p
 bin/console app:generate-iiif-manifests resource_id
 ```
 This will generate a IIIF manifest for the resource and any resources related to it, then store it in MySQL. The manifest can be accessed from a URL as such: https://imagehub.kmska.be/iiif/2/512/manifest.json, where '512' stands for the ID of the resource in ResourceSpace.
+
+To update the data and generate manifests for all resources you can run the above commands without arguments. This can be useful to perform a daily update through crontab:
+```
+bash /opt/imagehub/bin/console app:generate-iiif-manifests resource_id
+bash /opt/imagehub/bin/console app:datahub-to-resourcespace resource_id
+```
+
+The Imagehub also provides the appropriate logging. Logs are stored in var/logs/.
