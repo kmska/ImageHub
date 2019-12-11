@@ -231,17 +231,17 @@ Add rule
 * Send LDAP Attribute as Claims
 * Next
 * Claim rule name: 'UPN'
-** Attribute store: Active Directory
-** LDAP attributes: User-Principal-Name, Outgoing Claim Type: UPN
-** LDAP attributes: Token-Group - Unqualified Names: Outgoing Claim Type: Group
+  * Attribute store: Active Directory
+  * LDAP attributes: User-Principal-Name, Outgoing Claim Type: UPN
+  * LDAP attributes: Token-Group - Unqualified Names: Outgoing Claim Type: Group
 
 Add rule
-** Transform an incoming Claim
-** Claim rule name: 'Outgoing name identifier'
-** Incoming claim type: UPN
-** Outgoing claim type: Name ID
-** Outgoing name ID format: Transient Identifier
-** Check 'Pass through all claim values'
+  * Transform an incoming Claim
+  * Claim rule name: 'Outgoing name identifier'
+  * Incoming claim type: UPN
+  * Outgoing claim type: Name ID
+  * Outgoing name ID format: Transient Identifier
+  * Check 'Pass through all claim values'
 
 Browse to https://imagehub.kmska.local/simplesaml/ again.
 * Tab Authentication
