@@ -198,6 +198,12 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                         '@value'    => $value
                     );
                 }*/
+
+                // Remove date and month when the exact date is clearly unknown
+                if(preg_match('/^[0-9]{3,4}\-01\-01, *[0-9]{3,4}\-12\-31$/', $metadata)) {
+                    $metadata = str_replace('-01-01', '', $metadata);
+                    $metadata = str_replace('-12-31', '', $metadata);
+                }
                 // Grab the values for the top-level description, label and attribution
                 if($key == 'Description') {
                     $description = $metadata;
