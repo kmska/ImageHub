@@ -133,11 +133,6 @@ class ResourceSpace
         return json_decode($data, true);
     }
 
-    public function createResource()
-    {
-        return $this->doApiCall('create_resource&param1=1&param2=0&param3=&param4=1&param5=&param6=&param7=');
-    }
-
     public function updateField($id, $key, $value)
     {
         return $this->doApiCall('update_field&param1=' . $id . '&param2=' . $key . '&param3=' . urlencode($value));
