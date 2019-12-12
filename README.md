@@ -267,7 +267,7 @@ Once all is set up correctly, in theory all you need to do is upload images to R
 
 However, you can also perform bulk uploads of images without providing an inventory number. In this case, you can upload as many images to ResourceSpace as you like (keeping in mind to still set the Cleared for usage and Recommended image for publication fields) and then upload a CSV file onto the Imagehub server through FTP. It is important that each header of this CSV file has the same name as the shorthand name of the metadata fields in ResourceSpace. Also beware of any leading or trailing characters in the CSV header.
 
-The 'datecreatedofartwork' CSV values should have the following format: 'yyyy-mm-dd, yyyy-mm-dd', indicatnig a first and last date. However, it may also be split up in two columns, 'datecreatedofartwork-start' and 'datecreatedofartwork-end', each of which may contain a date in 'yyyy', 'yyyy-mm' or 'yyyy-mm-dd' format. The command will then automatically merge both into 'datecreatedofartwork' and append month/day values where needed.
+The 'datecreatedofartwork' CSV values should have the following format: 'yyyy-mm-dd, yyyy-mm-dd', indicating a first and last date. However, it may also be split up in two columns, 'datecreatedofartwork-start' and 'datecreatedofartwork-end', each of which may contain a date in 'yyyy', 'yyyy-mm' or 'yyyy-mm-dd' format. The command will then automatically merge both into 'datecreatedofartwork' and append month/day values where needed.
 
 You can then execute the following command:
 ```
