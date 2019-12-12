@@ -304,7 +304,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     '@id' => $manifestId,
                     '@type' => 'sc:Manifest',
                     'label' => $label,
-                    'metadata' => $manifestMetadata;
+                    'metadata' => $manifestMetadata
                 );
 
                 // Update the LIDO data to include the manifest and thumbnail
