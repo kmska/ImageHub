@@ -41,23 +41,20 @@ class CsvToResourceSpaceCommand extends ContainerAwareCommand
 
         foreach($csvData as $csvLine) {
 
-            try {
-                if (!$datahubEndpoint)
-                    $datahubEndpoint = Endpoint::build($datahubUrl . '/oai');
-
-                $datahubEndpoint->getRecord($datahubDatapidPrefix . StringUtil::cleanObjectNumber($csvLine['sourceinvnr']), $metadataPrefix);
-            }catch(Exception $exception) {
-                echo $exception . PHP_EOL;
-            }
-
-
-            if(true)
-            continue;
-
             $filename = StringUtil::stripExtension($csvLine['originalfilename']);
             if(!array_key_exists($filename, $resourceSpaceFilenames)) {
                 echo 'Error: could not find any resources for file ' . $filename . PHP_EOL;
                 continue;
+            }
+
+            try {
+                if (!$datahubEndpoint) {
+                    $datahubEndpoint = Endpoint::build($datahubUrl . '/oai');
+                }
+
+                $datahubEndpoint->getRecord($datahubDatapidPrefix . StringUtil::cleanObjectNumber($csvLine['sourceinvnr']), $metadataPrefix);
+            } catch(Exception $exception) {
+                echo $exception . PHP_EOL;
             }
 
             $id = $resourceSpaceFilenames[$filename];
