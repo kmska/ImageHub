@@ -199,11 +199,26 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     );
                 }*/
 
-                // Remove date and month when the exact date is clearly unknown
-                if(preg_match('/^[0-9]{3,4}\-01\-01, *[0-9]{3,4}\-12\-31$/', $metadata)) {
-                    $metadata = str_replace('-01-01', '', $metadata);
-                    $metadata = str_replace('-12-31', '', $metadata);
+                // Replace comma by ' - ' for date ranges
+                if(preg_match('/^[0-9]{3,4}\-[0-9]{1,2}\-[0-9]{1,2}, *[0-9]{3,4}\-[0-9]{1,2}\-[0-9]{1,2}$/', $metadata)) {
+                    $metadata = str_replace(' ', '', $metadata);
+                    $metadata = str_replace(',', ' - ', $metadata);
+
+                  // Remove date and month when the exact date is clearly unknown
+                  if(preg_match('/^[0-9]{3,4}\-01\-01 \- [0-9]{3,4}\-12\-31$/', $metadata)) {
+                      $metadata = str_replace('-01-01', '', $metadata);
+                      $metadata = str_replace('-12-31', '', $metadata);
+                  }
+
+                  // Remove latest date if it is the same as the earliest date
+                  $dashIndex = strpos($metadata, ' - ');
+                  $earliestDate = substr($metadata, 0, $dashIndex);
+                  $latestDate = substr($metadata, $dashIndex + 3);
+                  if($earliestDate === $latestDate) {
+                    $metadata = $earliestDate;
+                  }
                 }
+
                 // Grab the values for the top-level description, label and attribution
                 if($key == 'Description') {
                     $description = $metadata;
