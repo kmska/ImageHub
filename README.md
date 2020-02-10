@@ -81,15 +81,15 @@ A sample Apache configuration file may look like this:
 <VirtualHost _default_:443>
 
     DocumentRoot "/opt/ImageHub/public"
-    ServerName imagehub.kmska.local:443
+    ServerName <imagehub_url>:443
 
     SetEnv SIMPLESAMLPHP_CONFIG_DIR /opt/ImageHub/vendor/simplesamlphp/simplesamlphp/config
 
     Alias /simplesaml /opt/ImageHub/vendor/simplesamlphp/simplesamlphp/www
 
     SSLProxyEngine On
-    ProxyPass /cantaloupe/iiif/2 https://imagehub.kmska.local:8183/iiif/2
-    ProxyPassReverse /cantaloupe/iiif/2 https://imagehub.kmska.local:8183/iiif/2
+    ProxyPass /cantaloupe/iiif/2 https://<imagehub_url>:8183/iiif/2
+    ProxyPassReverse /cantaloupe/iiif/2 https://<imagehub_url>:8183/iiif/2
 
     <Directory /opt/ImageHub/public>
       <IfModule !mod_authz_core.c>
@@ -159,7 +159,7 @@ Windows Administrative Tools, AD FS Management
 In AD FS, Service, Endpoints. Under Metadata, find the URL, such as:
 /FederationMetadata/2007-06/FederationMetadata.xml
 
-Browse to https://imagehub.kmska.local/simplesaml/  
+Browse to https://<imagehub_url>/simplesaml/  
 * Tab Federation (Federatie)
 * Tools
 * XML to SimpleSAMphp metadata converter.
@@ -180,19 +180,19 @@ In config/authsources.php, replace the block 'default-sp' with the following:
   // to update the RPT at the IdP.
   'default-sp' => array(
       'saml:SP',
- 
+
       // The entity ID of this SP.
       // Can be NULL/unset, in which case an entity ID is generated based on the metadata URL.
       'entityID' => null,
- 
+
       // The entity ID of the IdP this should SP should contact.
       // Can be NULL/unset, in which case the user will be shown a list of available IdPs.
       'idp' => 'http://[your_adfs_login_service]/adfs/services/trust',
- 
+
       // The URL to the discovery service.
       // Can be NULL/unset, in which case a builtin discovery service will be used.
       'discoURL' => null,
-    
+
       // ADFS requires signing of the logout - the others are optional (may be overhead you don't want.)
       'sign.logout' => TRUE,
       'redirect.sign' => TRUE,
@@ -209,7 +209,7 @@ In config/authsources.php, replace the block 'default-sp' with the following:
   ),
 ```
 
-Browse to https://imagehub.kmska.local/simplesaml/ again.
+Browse to https://<imagehub_url>/simplesaml/ again.
 * Tab Federation (Federatie)
 * Under 'SAML 2.0 SP Metadata'
 * Copy the value next to 'Entity ID:'
@@ -243,7 +243,7 @@ Add rule
   * Outgoing name ID format: Transient Identifier
   * Check 'Pass through all claim values'
 
-Browse to https://imagehub.kmska.local/simplesaml/ again.
+Browse to https://<imagehub_url>/simplesaml/ again.
 * Tab Authentication
 * Test configured authentication sources
 * default-sp
@@ -286,7 +286,7 @@ After this, the following command will be called, also with the resource ID as p
 ```
 bin/console app:generate-iiif-manifests resource_id
 ```
-This will generate a IIIF manifest for the resource and any resources related to it, then store it in MySQL. The manifest can be accessed from a URL as such: https://imagehub.kmska.be/iiif/2/512/manifest.json, where '512' stands for the ID of the resource in ResourceSpace.
+This will generate a IIIF manifest for the resource and any resources related to it, then store it in MySQL. The manifest can be accessed from a URL as such: https://<imagehub_url>/iiif/2/512/manifest.json, where '512' stands for the ID of the resource in ResourceSpace.
 
 To update the data and generate manifests for all resources you can run the above commands without arguments. This can be useful to perform a daily update through crontab:
 ```
