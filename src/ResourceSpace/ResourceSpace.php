@@ -102,12 +102,8 @@ class ResourceSpace
         $public = false;
         if(!empty($publicUse)) {
             if (array_key_exists($publicUse['key'], $data)) {
-                $expl = explode(',', $data[$publicUse['key']]);
-                foreach ($expl as $val) {
-                    if ($val == $publicUse['value']) {
-                        $public = true;
-                        break;
-                    }
+                if(strpos($data[$publicUse['key']], $publicUse['value']) !== false) {
+                    $public = true;
                 }
             }
         }

@@ -36,6 +36,9 @@ parameters:
               - 'descriptiveMetadata[@xml:lang="{language}"]/objectClassificationWrap/objectWorkTypeWrap/objectWorkType/conceptID[@source="AAT"]'
               - 'descriptiveMetadata[@xml:lang="{language}"]/objectClassificationWrap/objectWorkTypeWrap/objectWorkType/term[@pref="preferred"]'
             field: 'keywords'
+        copyright:
+            xpath: 'administrativeMetadata[@xml:lang="{language}"]/rightsWorkWrap/rightsWorkSet/creditLine'
+            field: 'copyrightnoticeofart'
 
     cantaloupe_url: 'http://imagehub.kmska.be:8182/iiif/2/'
     validate_manifests: false
@@ -72,4 +75,5 @@ parameters:
       nl-titleartwork: 'Title'
       sourceinvnr: 'Object ID'
       description: 'Description'
-      publisher: 'Credit Line'
+      publisher: 'Publisher'
+      copyrightnoticeofart: 'Copyright Notice of Artwork/Object'
