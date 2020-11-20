@@ -27,6 +27,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $namespace;
     private $metadataPrefix;
     private $dataDefinition;
+    private $creditLineDefinition;
     private $relatedWorksXpath;
     private $publicUse;
     private $recommendedForPublication;
@@ -84,6 +85,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
         $this->relatedWorksXpath = $this->container->getParameter('datahub_related_works_xpath');
         $this->dataDefinition = $this->container->getParameter('datahub_data_definition');
+        $this->creditLineDefinition = $this->container->getParameter('credit_line');
         $this->publicUse = $this->container->getParameter('public_use');
         $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
 
@@ -189,7 +191,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         }
 
                         $newData['relatedrecords'] = $relations;
-
+                        $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $oldData, $newData);
                         $this->updateResourceSpaceFields($resourceId, $newData);
                     }
                 }
@@ -485,7 +487,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             if(!array_key_exists($key, $oldData)) {
                 if($this->verbose) {
 //                    echo 'Field ' . $key . ' does not exist, should be ' . $value . PHP_EOL;
-                    $this->logger->error('Field ' . $key . ' does not exist, should be ' . $value);
+                    $this->logger->info('Field ' . $key . ' does not exist, should be ' . $value);
                 }
                 $update = true;
             } else if($key == 'keywords') {
@@ -508,7 +510,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 if(!$hasAll) {
                     if($this->verbose) {
 //                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-                        $this->logger->error('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
+                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
                     }
                     $update = true;
                 }
@@ -516,7 +518,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 if($oldData[$key] != $value) {
                     if($this->verbose) {
 //                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-                        $this->logger->error('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
+                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
                     }
                     $update = true;
                 }

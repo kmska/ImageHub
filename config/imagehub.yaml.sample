@@ -13,9 +13,12 @@ parameters:
     datahub_metadataprefix: 'oai_lido'
     datahub_related_works_xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectRelationWrap/relatedWorksWrap/relatedWorkSet'
     datahub_data_definition:
-        title:
-            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/titleWrap/titleSet/appellationValue'
+        title_nl:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/titleWrap/titleSet/appellationValue[@xml:lang="nl"]'
             field: 'nl-titleartwork'
+        title_en:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/titleWrap/titleSet/appellationValue[@xml:lang="en"]'
+            field: 'en-titleartwork'
         short_description:
             xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/objectDescriptionWrap/objectDescriptionSet/descriptiveNoteValue'
             field: 'description'
@@ -39,6 +42,22 @@ parameters:
         copyright:
             xpath: 'administrativeMetadata[@xml:lang="{language}"]/rightsWorkWrap/rightsWorkSet/creditLine'
             field: 'copyrightnoticeofart'
+
+    credit_line:
+        nl:
+          field: 'creditline'
+          title_field: 'nl-titleartwork'
+          suffix: 'Collectie KMSKA - Vlaamse Gemeenschap'
+          sabam_suffix: 'België'
+          photo: 'Foto'
+          photographer: 'Fotograaf'
+        en:
+          field: 'en-creditline'
+          title_field: 'en-titleartwork'
+          suffix: 'Collection KMSKA - Flemish Community'
+          sabam_suffix: 'Belgium'
+          photo: 'Photo'
+          photographer: 'Photographer'
 
     cantaloupe_url: 'http://imagehub.kmska.be:8182/iiif/2/'
     validate_manifests: false

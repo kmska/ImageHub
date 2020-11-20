@@ -19,6 +19,84 @@ class ResourceSpace
         $this->apiKey = $container->getParameter('resourcespace_api_key');
     }
 
+    public function generateCreditLines($creditLineDefinition, $resourceSpaceData, &$datahubData)
+    {
+        foreach($creditLineDefinition as $languge => $definition) {
+            $creditLine = array();
+
+            if(array_key_exists('creatorofartworkobje', $datahubData)) {
+                $creditLine[] = $datahubData['creatorofartworkobje'];
+            }
+            if(array_key_exists($definition['title_field'], $datahubData)) {
+                $creditLine[] = $datahubData[$definition['title_field']];
+            }
+            if(array_key_exists('sourceinvnr', $datahubData)) {
+                $creditLine[] = $datahubData['sourceinvnr'];
+            }
+
+            $photographer = $this->getPhotographerInfo($resourceSpaceData, $definition['photo'], $definition['photographer']);
+            if($photographer != null) {
+                $creditLine[] = $photographer;
+            }
+
+            $prefix = '';
+            $suffix = $definition['suffix'];
+
+            if(array_key_exists('copyrightnoticeofart', $datahubData)) {
+                $copyright = $datahubData['copyrightnoticeofart'];
+                if(strpos($copyright, 'CC0') !== false) {
+                    $suffix .= ' (CC0)';
+                } else if(strpos($copyright, 'SABAM') !== false) {
+                    $prefix = $copyright . ' ' . $definition['sabam_suffix'] . ', ' . date('Y') .'<br/>';
+                } else {
+                    $prefix = $copyRight . date('Y') . '<br/>';
+                }
+            }
+
+            if(!empty($prefix) || !empty($creditLine)) {
+                $suffix = '<br/>' . $suffix;
+            }
+
+            $datahubData[$definition['field']] = $prefix . implode('<br/>', $creditLine) . $suffix;
+        }
+    }
+
+    public function getPhotographerInfo($data, $photoTrans, $photographerTrans)
+    {
+        $photo = null;
+        if(array_key_exists('copyrightnoticeofima', $data)) {
+            $photo = StringUtil::filterPhotographer($data['copyrightnoticeofima']);
+            if($photo != null) {
+                if(empty($photo) || strpos($photo, '©') !== false) {
+                    $photo = null;
+                }
+            }
+        }
+
+        $photographer = null;
+        if(array_key_exists('credit', $data)) {
+            $photographer = StringUtil::filterPhotographer($data['credit']);
+            if($photographer != null) {
+                if(empty($photographer)) {
+                    $photographer = null;
+                }
+            }
+        }
+
+        $photographerLine = '';
+        if($photo != null || $photographer != null) {
+            if($photo == $photographer || $photographer == null) {
+                $photographerLine = $photoTrans . ': ' . str_replace('\n', '<br/>', $photo);
+            } else if($photo == null) {
+                $photographerLine = $photographerTrans . ': ' . str_replace('\n', '<br/>', $photographer);
+            } else {
+                $photographerLine = $photoTrans . ': ' . str_replace('\n', '<br/>', $photo) . '<br/>' . $photographerTrans . ': ' . str_replace('\n', '<br/>', $photographer);
+            }
+        }
+        return $photographerLine;
+
+    }
+
     public function getCurrentResourceSpaceData()
     {
         $resources = $this->getAllResources();
