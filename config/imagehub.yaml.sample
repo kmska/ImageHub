@@ -7,6 +7,12 @@ parameters:
 #    datahub_url: 'http://datahub.kmska.be'
 #    datahub_record_id_prefix: 'oai:datahub.kmska.be:kmska.be:'
     datahub_url: 'http://datahub.iiif.vlaamsekunstcollectie.be'
+
+    datahub_username: 'admin'
+    datahub_password: 'admin'
+    datahub_public_id: '3h69zu92njk0okgc484wcgokwg4ck0coco80kw0cowg00s08ow'
+    datahub_secret: '4eump0o2sjcwgoggkskggcg00s004ow447cswksw8s8wc4ocsk'
+
     datahub_record_id_prefix: 'oai:datahub.vlaamsekunstcollectie.be:kmska.be:'
     datahub_language: nl
     datahub_namespace: 'lido'
