@@ -88,7 +88,7 @@ parameters:
       private_folder: 'private%2F'
 
     recommended_for_publication:
-      key: 'recommendedimageforpub'
+      key: 'recommendedimageforp'
 
     authentication_url: 'https://imagehub.kmska.be/public/authenticate'
     authentication_whitelist:
