@@ -23,6 +23,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 {
     private $verbose;
     private $cantaloupeUrl;
+    private $cantaloupeDisableSSLVerification;
     private $publicUse;
     private $namespace;
     private $metadataPrefix;
@@ -85,6 +86,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->datahubRecordIdPrefix = $this->container->getParameter('datahub_record_id_prefix');
 
         $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
+        $this->cantaloupeDisableSSLVerification = $this->container->getParameter('cantaloupe_disable_ssl_verification');
+
         $this->resourceSpace = new ResourceSpace($this->container);
 
         $resourceSpaceId = $input->getArgument('rs_id');
@@ -171,16 +174,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
                 $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
                 $imageData['public_use'] = $isPublic;
-                $generateRecordId = true;
-                if(array_key_exists('pidobject', $data)) {
-                    if(!empty($data['pidobject'])) {
-                        $imageData['record_id'] = $data['pidobject'];
-                        $generateRecordId = false;
-                    }
-                }
-                if($generateRecordId) {
-                    $imageData['record_id'] = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($data['sourceinvnr']);
-                }
+                $imageData['record_id'] = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($data['sourceinvnr']);
                 $this->imagehubData[$resourceId] = $imageData;
             }
         }
@@ -189,7 +183,18 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private function getCantaloupeData($resourceId)
     {
         try {
-            $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json');
+            if($this->cantaloupeDisableSSLVerification) {
+                $arrContextOptions=array(
+                    "ssl" => array(
+                        "verify_peer"=>false,
+                        "verify_peer_name"=>false,
+                    ),
+                );
+                $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json', false, stream_context_create($arrContextOptions));
+            } else {
+                $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json');
+            }
+
             $data = json_decode($jsonData);
             if($this->verbose) {
 //                echo 'Retrieved image ' . $resourceId . ' from Cantaloupe' . PHP_EOL;
@@ -366,7 +371,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 );
 
                 // Update the LIDO data to include the manifest and thumbnail
-var_dump($data);
                 if($data['public_use']) {
                     $this->addManifestAndThumbnailToLido($this->namespace, $data['record_id'], $manifestId, $thumbnail);
                 }

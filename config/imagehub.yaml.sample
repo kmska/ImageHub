@@ -19,6 +19,9 @@ parameters:
     datahub_metadataprefix: 'oai_lido'
     datahub_related_works_xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectRelationWrap/relatedWorksWrap/relatedWorkSet'
     datahub_data_definition:
+        work_pid:
+            xpath: 'objectPublishedID'
+            field: 'pidobject'
         title_nl:
             xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/titleWrap/titleSet/appellationValue[@xml:lang="nl"]'
             field: 'nl-titleartwork'
@@ -66,9 +69,12 @@ parameters:
           photographer: 'Photographer'
 
     cantaloupe_url: 'http://imagehub.kmska.be:8182/iiif/2/'
+    cantaloupe_disable_ssl_verification: true
+
+    service_url: 'https://imagehub.kmska.be/public/iiif/2/'
+
     validate_manifests: false
     validator_url: 'http://localhost:8080/validate?url='
-    service_url: 'https://imagehub.kmska.be/public/iiif/2/'
 
     adfs_requirements:
         - key: 'http://schemas.xmlsoap.org/claims/Group'
