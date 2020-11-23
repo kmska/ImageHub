@@ -151,7 +151,6 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             }
         }
 
-
         if (count($this->datahubData) > 0) {
 
             $this->addAllRelations();
@@ -161,12 +160,14 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 if(array_key_exists($recordId, $this->resourceIds)) {
                     foreach($this->resourceIds[$recordId] as $resourceId) {
 
-                        $relations = '';
+                        $relations = array();
 
                         $isThisPublic = in_array($resourceId, $this->publicImages);
                         $isThisRecommendedForPublication = in_array($resourceId, $this->recommendedImagesForPub);
                         if($isThisPublic && !$isThisRecommendedForPublication) {
-                            $relations = $resourceId;
+                            if(!in_array($resourceId, $relations)) {
+                                $relations[] = $resourceId;
+                            }
                         } else {
                             foreach ($this->relations[$recordId] as $k => $v) {
                                 if (array_key_exists($k, $this->resourceIds)) {
@@ -182,7 +183,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                                                 || $isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
                                                 || !$isThisPublic && $isOtherRecommendedForPublication
                                                     && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
-                                                $relations .= (empty($relations) ? '' : PHP_EOL) . $otherResourceId;
+                                                if(!in_array($otherResourceId, $relations)) {
+                                                    $relations[] = $otherResourceId;
+                                                }
                                             }
                                         }
                                     }
@@ -190,7 +193,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                             }
                         }
 
-                        $newData['relatedrecords'] = $relations;
+                        $newData['relatedrecords'] = implode(PHP_EOL, $relations);
                         $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $oldData, $newData);
                         $this->updateResourceSpaceFields($resourceId, $newData);
                     }
