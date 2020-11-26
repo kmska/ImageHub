@@ -144,11 +144,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->imagehubData = array();
         $this->publicManifestsAdded = array();
 
-        $metadataFields = $this->container->getParameter('iiif_metadata_fields');
-
         $this->publicUse = $this->container->getParameter('public_use');
         $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
-        $this->addExtraFields($resourceSpaceData, $metadataFields);
+        $this->addExtraFields($resourceSpaceData);
 
         // For good measure, sort the Imagehub data based on ResourceSpace id
         ksort($this->imagehubData);
@@ -157,8 +155,13 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->generateAndStoreManifests($em);
     }
 
-    private function addExtraFields($resourceSpaceData, $metadataFields)
+    private function addExtraFields($resourceSpaceData)
     {
+
+        $metadataFields = $this->container->getParameter('iiif_metadata_fields');
+        $labelField = $this->container->getParameter('iiif_label');
+        $descriptionField = $this->container->getParameter('iiif_description');
+        $attributionField = $this->container->getParameter('iiif_attribution');
         foreach($resourceSpaceData as $resourceId => $data) {
 
             $isPublic = $this->resourceSpace->isPublicUse($data, $this->publicUse);
@@ -171,6 +174,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
             $imageData = $this->getCantaloupeData($url);
             if($imageData) {
+                $imageData['label'] = $data[$labelField];
+                $imageData['description'] = $data[$descriptionField];
+                $imageData['attribution'] = $data[$attributionField];
                 $imageData['metadata'] = array();
                 foreach ($metadataFields as $field => $name) {
                     $imageData['metadata'][$name] = $data[$field];
@@ -233,10 +239,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
         foreach($this->imagehubData as $resourceId => $data) {
 
-            $label = null;
-            $description = null;
-            $attribution = null;
-
             // Fill in (multilingual) manifest data
             $manifestMetadata = array();
             foreach($data['metadata'] as $key => $metadata) {
@@ -272,16 +274,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                   }
                 }
 
-                // Grab the values for the top-level description, label and attribution
-                if($key == 'Description') {
-                    $description = $metadata;
-                    // Description is not included in the metadata field
-                    continue;
-                } else if($key == 'Title') {
-                    $label = $metadata;
-                } else if($key == 'Credit Line') {
-                    $attribution = $metadata;
-                }
                 $manifestMetadata[] = array(
                     'label' => $key,
                     'value' => $metadata
@@ -332,9 +324,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 '@context'         => 'http://iiif.io/api/presentation/2/context.json',
                 '@type'            => 'sc:Manifest',
                 '@id'              => $manifestId,
-                'label'            => $label,
-                'attribution'      => $attribution,
-                'description'      => empty($description) ? 'n/a' : $description,
+                'label'            => $data['label'],
+                'attribution'      => $data['attribution'],
+                'description'      => empty($data['description']) ? 'n/a' : $data['description'],
                 'metadata'         => $manifestMetadata,
                 'viewingDirection' => 'left-to-right',
                 'viewingHint'      => 'individuals',
@@ -377,7 +369,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $manifests[] = array(
                     '@id' => $manifestId,
                     '@type' => 'sc:Manifest',
-                    'label' => $label,
+                    'label' => $data['label'],
                     'metadata' => $manifestMetadata
                 );
 

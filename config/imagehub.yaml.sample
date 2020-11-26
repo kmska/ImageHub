@@ -54,7 +54,7 @@ parameters:
 
     credit_line:
         nl:
-          field: 'creditline'
+          field: 'nl-creditline'
           title_field: 'nl-titleartwork'
           suffix: 'Collectie KMSKA - Vlaamse Gemeenschap'
           sabam_suffix: 'België'
@@ -102,9 +102,13 @@ parameters:
       label: 'Login to the Royal Museum of Fine Arts Antwerp'
       profile: 'http://iiif.io/api/auth/1/login'
 
+    iiif_label: 'nl-titleartwork'
+    iiif_description: 'description'
+    iiif_attribution: 'publisher'
     iiif_metadata_fields:
-      nl-titleartwork: 'Title'
+      nl-titleartwork: 'NL - Title'
+      en-titleartwork: 'EN - Title'
       sourceinvnr: 'Object ID'
-      description: 'Description'
       publisher: 'Publisher'
-      copyrightnoticeofart: 'Copyright Notice of Artwork/Object'
+      nl-creditline: 'NL - Credit Line'
+      en-creditline: 'EN - Credit Line'
