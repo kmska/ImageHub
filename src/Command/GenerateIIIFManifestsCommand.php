@@ -203,8 +203,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             if($this->cantaloupeDisableSSLVerification) {
                 $arrContextOptions=array(
                     "ssl" => array(
-                        "verify_peer"=>false,
-                        "verify_peer_name"=>false,
+                        "verify_peer" => false,
+                        "verify_peer_name" => false,
                     ),
                 );
                 $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json', false, stream_context_create($arrContextOptions));
