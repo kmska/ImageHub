@@ -25,12 +25,14 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $cantaloupeUrl;
     private $cantaloupeDisableSSLVerification;
     private $publicUse;
+    private $recommendedForPublication;
     private $namespace;
     private $metadataPrefix;
     private $datahubRecordIdPrefix;
 
     private $resourceSpace;
     private $imagehubData;
+    private $publicManifestsAdded;
     private $datahubUrl;
     private $datahubEndpoint;
     private $datahubUsername;
@@ -136,12 +138,20 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             return;
         }
 
+        // Sort ResourceSpace data based on id
+        ksort($resourceSpaceData);
+
         $this->imagehubData = array();
+        $this->publicManifestsAdded = array();
 
         $metadataFields = $this->container->getParameter('iiif_metadata_fields');
 
         $this->publicUse = $this->container->getParameter('public_use');
+        $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
         $this->addExtraFields($resourceSpaceData, $metadataFields);
+
+        // For good measure, sort the Imagehub data based on ResourceSpace id
+        ksort($this->imagehubData);
 
         $em = $this->container->get('doctrine')->getManager();
         $this->generateAndStoreManifests($em);
@@ -174,6 +184,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
                 $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
                 $imageData['public_use'] = $isPublic;
+                $imageData['recommended_for_publication'] = $this->resourceSpace->isRecommendedForPublication($data, $this->recommendedForPublication);
                 $imageData['record_id'] = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($data['sourceinvnr']);
                 $this->imagehubData[$resourceId] = $imageData;
             }
@@ -371,8 +382,13 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 );
 
                 // Update the LIDO data to include the manifest and thumbnail
-                if($data['public_use']) {
-                    $this->addManifestAndThumbnailToLido($this->namespace, $data['record_id'], $manifestId, $thumbnail);
+                if($data['recommended_for_publication']) {
+                    if($data['public_use'] || !in_array($data['record_id'], $this->publicManifestsAdded)) {
+                        $this->addManifestAndThumbnailToLido($this->namespace, $data['record_id'], $manifestId, $thumbnail);
+                        if($data['public_use'] && !in_array($data['record_id'], $this->publicManifestsAdded)) {
+                            $this->publicManifestsAdded[] = $data['record_id'];
+                        }
+                    }
                 }
             }
         }
