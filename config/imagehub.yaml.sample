@@ -69,7 +69,11 @@ parameters:
           photographer: 'Photographer'
 
     cantaloupe_url: 'http://imagehub.kmska.be:8182/iiif/2/'
-    cantaloupe_disable_ssl_verification: true
+    cantaloupe_curl_opts:
+        CURLOPT_SSL_VERIFYHOST: false
+        CURLOPT_SSL_VERIFYPEER: false
+#        CURLOPT_SSL_CAINFO: /path/to/cacert.pem
+#        CURLOPT_SSL_CAPATH: /path/to/cacert.pem
 
     service_url: 'https://imagehub.kmska.be/public/iiif/2/'
 

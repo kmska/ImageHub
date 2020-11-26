@@ -23,7 +23,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 {
     private $verbose;
     private $cantaloupeUrl;
-    private $cantaloupeDisableSSLVerification;
+    private $cantaloupeCurlOpts;
     private $publicUse;
     private $recommendedForPublication;
     private $namespace;
@@ -88,7 +88,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->datahubRecordIdPrefix = $this->container->getParameter('datahub_record_id_prefix');
 
         $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
-        $this->cantaloupeDisableSSLVerification = $this->container->getParameter('cantaloupe_disable_ssl_verification');
+        $curlOpts = $this->container->getParameter('cantaloupe_curl_opts');
+        $this->cantaloupeCurlOpts = array();
+        foreach($curlOpts as $key => $value) {
+            $this->cantaloupeCurlOpts[constant($key)] = $value;
+        }
 
         $this->resourceSpace = new ResourceSpace($this->container);
 
@@ -200,24 +204,25 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private function getCantaloupeData($resourceId)
     {
         try {
-            if($this->cantaloupeDisableSSLVerification) {
-                $arrContextOptions=array(
-                    "ssl" => array(
-                        "verify_peer" => false,
-                        "verify_peer_name" => false,
-                    ),
-                );
-                $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json', false, stream_context_create($arrContextOptions));
+            $ch = curl_init();
+            curl_setopt($ch, CURLOPT_RETURNTRANSFER, 1);
+            curl_setopt($ch, CURLOPT_URL, $this->cantaloupeUrl . $resourceId . '.tif/info.json');
+            foreach($this->cantaloupeCurlOpts as $key => $value) {
+                curl_setopt($ch, $key, $value);
+            }
+            $jsonData = curl_exec($ch);
+            if (curl_errno($ch)) {
+                $this->logger->error(curl_error($ch));
+                curl_close($ch);
             } else {
-                $jsonData = file_get_contents($this->cantaloupeUrl . $resourceId . '.tif/info.json');
-            }
-
-            $data = json_decode($jsonData);
-            if($this->verbose) {
+                curl_close($ch);
+                $data = json_decode($jsonData);
+                if($this->verbose) {
 //                echo 'Retrieved image ' . $resourceId . ' from Cantaloupe' . PHP_EOL;
-                $this->logger->info('Retrieved image ' . $resourceId . ' from Cantaloupe');
+                    $this->logger->info('Retrieved image ' . $resourceId . ' from Cantaloupe');
+                }
+                return array('height' => $data->height, 'width' => $data->width);
             }
-            return array('height' => $data->height, 'width' => $data->width);
         } catch(Exception $e) {
 //            echo $e->getMessage() . PHP_EOL;
             $this->logger->error($e->getMessage());
