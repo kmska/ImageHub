@@ -18,3 +18,5 @@
 
 .env
 config/imagehub.yaml
+config/imagehub.yaml.old
+keys/
