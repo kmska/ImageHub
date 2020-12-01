@@ -72,8 +72,8 @@ parameters:
     cantaloupe_curl_opts:
         CURLOPT_SSL_VERIFYHOST: false
         CURLOPT_SSL_VERIFYPEER: false
-#        CURLOPT_SSL_CAINFO: /path/to/cacert.pem
-#        CURLOPT_SSL_CAPATH: /path/to/cacert.pem
+#        CURLOPT_CAINFO: /path/to/cacert.pem
+#        CURLOPT_CAPATH: /path/to/cacert.pem
 
     service_url: 'https://imagehub.kmska.be/public/iiif/2/'
 
