@@ -6,6 +6,12 @@
 
 The Imagehub provides a link between [ResourceSpace](https://www.resourcespace.com) and the [Datahub](https://github.com/thedatahub/Datahub). Data from the Datahub is added to resources in ResourceSpace and [IIIF Presentation API](https://iiif.io/api/presentation/2.1/) manifests are generated for each resource so they can be displayed in a IIIF viewer.
 
+## Important considerations
+
+The Imagehub will fill a number of metadata fields in ResourceSpace based on data from the Datahub. To configure what data goes into which ResourceSpace fields, please see 'datahub_data_definition' in config/imagehub.yaml(.sample).
+
+The fields that are automatically filled with data from the Datahub should not be manually edited, as any manual changes will be overwritten with data from the Datahub.
+
 ## Requirements
 
 The Imagehub installation requires the following components:
