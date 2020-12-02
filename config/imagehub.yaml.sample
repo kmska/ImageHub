@@ -18,6 +18,9 @@ parameters:
     datahub_namespace: 'lido'
     datahub_metadataprefix: 'oai_lido'
     datahub_related_works_xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectRelationWrap/relatedWorksWrap/relatedWorkSet'
+
+    # The value of 'field' within each definition is the shorthand name of the field in ResourceSpace where this data is sent.
+    # These fields should not be manually edited in ResourceSpace, as any data within will automatically be overwritten with data from the Datahub!
     datahub_data_definition:
         work_pid:
             xpath: 'objectPublishedID'
