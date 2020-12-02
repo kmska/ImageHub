@@ -30,8 +30,8 @@ class ResourceSpace
             if(array_key_exists($definition['title_field'], $datahubData)) {
                 $creditLine[] = $datahubData[$definition['title_field']];
             }
-            if(array_key_exists('sourceinvnr', $datahubData)) {
-                $creditLine[] = $datahubData['sourceinvnr'];
+            if(array_key_exists('sourceinvnr', $resourceSpaceData)) {
+                $creditLine[] = $definition['invnr'] . ' ' . $resourceSpaceData['sourceinvnr'];
             }
 
             $photographer = $this->getPhotographerInfo($resourceSpaceData, $definition['photo'], $definition['photographer']);

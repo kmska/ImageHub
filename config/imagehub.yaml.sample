@@ -58,6 +58,7 @@ parameters:
           title_field: 'nl-titleartwork'
           suffix: 'Collectie KMSKA - Vlaamse Gemeenschap'
           sabam_suffix: 'België'
+          invnr: 'Inv.nr.'
           photo: 'Foto'
           photographer: 'Fotograaf'
         en:
@@ -65,6 +66,7 @@ parameters:
           title_field: 'en-titleartwork'
           suffix: 'Collection KMSKA - Flemish Community'
           sabam_suffix: 'Belgium'
+          invnr: 'Inv.nr.'
           photo: 'Photo'
           photographer: 'Photographer'
 
