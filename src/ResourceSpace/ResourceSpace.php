@@ -49,7 +49,7 @@ class ResourceSpace
                 } else if(strpos($copyright, 'SABAM') !== false) {
                     $prefix = $copyright . ' ' . $definition['sabam_suffix'] . ', ' . date('Y') .'<br/>';
                 } else {
-                    $prefix = $copyRight . date('Y') . '<br/>';
+                    $prefix = $copyright . date('Y') . '<br/>';
                 }
             }
 
