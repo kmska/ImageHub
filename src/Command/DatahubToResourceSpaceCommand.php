@@ -194,7 +194,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         }
 
                         $newData['relatedrecords'] = implode(PHP_EOL, $relations);
-                        $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $oldData, $newData);
+                        $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $this->resourceSpaceData[$resourceId], $newData);
                         $this->updateResourceSpaceFields($resourceId, $newData);
                     }
                 }
