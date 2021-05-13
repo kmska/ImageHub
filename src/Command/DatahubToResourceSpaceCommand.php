@@ -31,6 +31,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $relatedWorksXpath;
     private $publicUse;
     private $recommendedForPublication;
+    private $iiifSortNumber;
 
     private $datahubEndpoint;
     private $verbose;
@@ -88,6 +89,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->creditLineDefinition = $this->container->getParameter('credit_line');
         $this->publicUse = $this->container->getParameter('public_use');
         $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
+        $this->iiifSortNumber = $this->container->getParameter('iiif_sort_number');
 
         $this->resourceSpace = new ResourceSpace($this->container);
 
@@ -97,6 +99,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $this->logger->error( 'Error: no resourcespace data.');
             return;
         }
+
+        // Sort by oldest > newest resources to generally improve sort orders in related resources
+        ksort($this->resourceSpaceData);
 
         $this->resourceIds = array();
         $this->datahubData = array();
@@ -166,7 +171,18 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $isThisRecommendedForPublication = in_array($resourceId, $this->recommendedImagesForPub);
                         if($isThisPublic && !$isThisRecommendedForPublication) {
                             if(!in_array($resourceId, $relations)) {
-                                $relations[] = $resourceId;
+                                $sortOrder = -1;
+                                if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$resourceId])) {
+                                    $sortOrder = $this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']];
+                                }
+                                if($sortOrder == -1) {
+                                    $relations[] = $resourceId;
+                                } else {
+                                    while(array_key_exists($sortOrder, $relations)) {
+                                        $sortOrder++;
+                                    }
+                                    $relations[$sortOrder] = $resourceId;
+                                }
                             }
                         } else {
                             foreach ($this->relations[$recordId] as $k => $v) {
@@ -184,7 +200,18 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                                                 || !$isThisPublic && $isOtherRecommendedForPublication
                                                     && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
                                                 if(!in_array($otherResourceId, $relations)) {
-                                                    $relations[] = $otherResourceId;
+                                                    $sortOrder = -1;
+                                                    if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$otherResourceId])) {
+                                                        $sortOrder = $this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']];
+                                                    }
+                                                    if($sortOrder == -1) {
+                                                        $relations[] = $otherResourceId;
+                                                    } else {
+                                                        while(array_key_exists($sortOrder, $relations)) {
+                                                            $sortOrder++;
+                                                        }
+                                                        $relations[$sortOrder] = $otherResourceId;
+                                                    }
                                                 }
                                             }
                                         }
@@ -193,6 +220,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                             }
                         }
 
+                        ksort($relations);
                         $newData['relatedrecords'] = implode(PHP_EOL, $relations);
                         $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $this->resourceSpaceData[$resourceId], $newData);
                         $this->updateResourceSpaceFields($resourceId, $newData);

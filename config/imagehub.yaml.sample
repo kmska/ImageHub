@@ -98,6 +98,8 @@ parameters:
 
     recommended_for_publication:
       key: 'recommendedimageforp'
+    iiif_sort_number:
+      key: 'iiifsortnumber'
 
     authentication_url: 'https://imagehub.kmska.be/public/authenticate'
     authentication_whitelist:
