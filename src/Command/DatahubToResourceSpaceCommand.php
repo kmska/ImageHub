@@ -173,7 +173,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                             if(!in_array($resourceId, $relations)) {
                                 $sortOrder = -1;
                                 if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$resourceId])) {
-                                    $sortOrder = $this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']];
+                                    if(!empty($this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']])) {
+                                        $sortOrder = $this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']];
+                                    }
                                 }
                                 if($sortOrder == -1) {
                                     $relations[] = $resourceId;
@@ -202,7 +204,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                                                 if(!in_array($otherResourceId, $relations)) {
                                                     $sortOrder = -1;
                                                     if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$otherResourceId])) {
-                                                        $sortOrder = $this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']];
+                                                        if(!empty($this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']])) {
+                                                            $sortOrder = $this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']];
+                                                        }
                                                     }
                                                     if($sortOrder == -1) {
                                                         $relations[] = $otherResourceId;
