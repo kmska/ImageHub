@@ -171,20 +171,16 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $isThisRecommendedForPublication = in_array($resourceId, $this->recommendedImagesForPub);
                         if($isThisPublic && !$isThisRecommendedForPublication) {
                             if(!in_array($resourceId, $relations)) {
-                                $sortOrder = -1;
+                                $sortOrder = PHP_INT_MAX;
                                 if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$resourceId])) {
                                     if(!empty($this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']])) {
                                         $sortOrder = $this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']];
                                     }
                                 }
-                                if($sortOrder == -1) {
-                                    $relations[] = $resourceId;
-                                } else {
-                                    while(array_key_exists($sortOrder, $relations)) {
-                                        $sortOrder++;
-                                    }
-                                    $relations[$sortOrder] = $resourceId;
+                                if(!array_key_exists($sortOrder, $relations)) {
+                                    $relations[$sortOrder] = array();
                                 }
+                                $relations[$sortOrder][] = $resourceId;
                             }
                         } else {
                             foreach ($this->relations[$recordId] as $k => $v) {
@@ -202,20 +198,16 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                                                 || !$isThisPublic && $isOtherRecommendedForPublication
                                                     && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
                                                 if(!in_array($otherResourceId, $relations)) {
-                                                    $sortOrder = -1;
+                                                    $sortOrder = PHP_INT_MAX ;
                                                     if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$otherResourceId])) {
                                                         if(!empty($this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']])) {
                                                             $sortOrder = $this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']];
                                                         }
                                                     }
-                                                    if($sortOrder == -1) {
-                                                        $relations[] = $otherResourceId;
-                                                    } else {
-                                                        while(array_key_exists($sortOrder, $relations)) {
-                                                            $sortOrder++;
-                                                        }
-                                                        $relations[$sortOrder] = $otherResourceId;
+                                                    if(!array_key_exists($sortOrder, $relations)) {
+                                                        $relations[$sortOrder] = array();
                                                     }
+                                                    $relations[$sortOrder][] = $otherResourceId;
                                                 }
                                             }
                                         }
@@ -223,9 +215,20 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                                 }
                             }
                         }
+                        $sortedRelations = array();
+                        foreach($relations as $key => $rel) {
+                            sort($rel);
+                            $sortedRelations[$key] = $rel;
+                        }
+                        ksort($sortedRelations);
 
-                        ksort($relations);
-                        $newData['relatedrecords'] = implode(PHP_EOL, $relations);
+                        $relatedRecords = array();
+                        foreach($sortedRelations as $rel) {
+                            foreach($rel as $r) {
+                                $relatedRecords[] = $r;
+                            }
+                        }
+                        $newData['relatedrecords'] = implode(PHP_EOL, $relatedRecords);
                         $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $this->resourceSpaceData[$resourceId], $newData);
                         $this->updateResourceSpaceFields($resourceId, $newData);
                     }
