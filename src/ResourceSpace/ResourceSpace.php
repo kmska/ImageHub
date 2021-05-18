@@ -168,7 +168,7 @@ class ResourceSpace
         if ($allResources == 'Invalid signature') {
             echo 'Error: invalid ResourceSpace API key. Please paste the key found in the ResourceSpace user management into app/config/parameters.yml.' . PHP_EOL;
 //            $this->logger->error('Error: invalid ResourceSpace API key. Please paste the key found in the ResourceSpace user management into app/config/parameters.yml.');
-            return NULL;
+            exit(1);
         }
 
         $resources = json_decode($allResources, true);
@@ -199,6 +199,19 @@ class ResourceSpace
             }
         }
         return $forPublication;
+    }
+
+    public function getIIIFSortNumber($data, $iiifSortNumber)
+    {
+        $sortNumber = -1;
+        if(!empty($iiifSortNumber)) {
+            if (array_key_exists($iiifSortNumber['key'], $data)) {
+                if(!empty($data[$iiifSortNumber['key']])) {
+                    $sortNumber = $data[$iiifSortNumber['key']];
+                }
+            }
+        }
+        return $sortNumber;
     }
 
     private function getResourceInfo($id)
