@@ -393,11 +393,25 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['latestdate'], $datahubData['latestdate']);
                         unset($datahubData['latestdate']);
                     }
-                    $qb->delete(DatahubData::class, 'data')
+                    //TODO data is getting deleted but not added, what's going on? Could be a doctrine bug.
+/*                    $qb->delete(DatahubData::class, 'data')
                         ->where('data.id = :id')
                         ->setParameter('id', $id)
                         ->getQuery()
                         ->execute();
+                    $em->flush();*/
+                    //TODO test this (different approach to deleting objects)
+                    //if this does not work, try updating the data in the objects and persisting them
+                    $oldData = $em->createQueryBuilder()
+                        ->select('i')
+                        ->from(DatahubData::class, 'i')
+                        ->where('i.id = :id')
+                        ->setParameter('id', $id)
+                        ->getQuery()
+                        ->getResult();
+                    foreach($oldData as $oldD) {
+                        $em->remove($oldD);
+                    }
                     $em->flush();
 
                     $datahubData['dh_record_id'] = $recordId;
