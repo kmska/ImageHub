@@ -3,7 +3,7 @@
 namespace App\Command;
 
 use App\Entity\DatahubData;
-use App\Entity\IIIfManifest;
+use App\Entity\RelatedResources;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
 use DOMDocument;
@@ -99,14 +99,15 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $publicImages = array();
         $recommendedImagesForPub = array();
         $resourceSpaceSortNumbers = array();
-        $oldRelatedRecords = array();
+        $originalFilenames = array();
 
+        $total = count($resources);
+        $n = 0;
         foreach($resources as $resource) {
             $resourceId = $resource['ref'];
             $rsData = $this->resourceSpace->getResourceSpaceData($resourceId);
             $inventoryNumber = $rsData['sourceinvnr'];
-            //TODO remove, this was for testing purposes only
-//            $rsData['sourceinvnr'] = '1';
+            $originalFilenames[$resourceId] = $rsData['originalfilename'];
             if (!empty($inventoryNumber)) {
                 $rsIdsToInventoryNumbers[$resourceId] = $inventoryNumber;
                 $dhData_ = $em->createQueryBuilder()
@@ -140,18 +141,29 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 if($index > -1) {
                     $resourceSpaceSortNumbers[$resourceId] = $index;
                 }
-                if(!empty($rsData['relatedrecords'])) {
-                    $oldRelatedRecords[$resourceId] = $rsData['relatedrecords'];
-                }
+                // Empty the 'related records' field in ResourceSpace
+                // TODO Perhaps we can remove this line after the first run, because we won't need it again after
+                $dhData['relatedrecords'] = '';
                 $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $rsData, $dhData);
                 $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
             }
+            if($this->verbose) {
+                $n++;
+                if ($n % 1000 == 0) {
+//                    echo 'At ' . $n . '/' . $total . ' resources.' . PHP_EOL;
+                    $this->logger->info('At ' . $n . '/' . $total . ' resources.');
+                }
+            }
         }
-        //TODO sort based on original filename when sort number and inventory number are the same
 
         // Sort by oldest > newest resources to generally improve sort orders in related resources
         ksort($rsIdsToInventoryNumbers);
 
+        $qb = $em->createQueryBuilder();
+        $qb->delete(RelatedResources::class, 'data')->getQuery()->execute();
+        $em->flush();
+
+        $n = 0;
         foreach ($rsIdsToInventoryNumbers as $resourceId => $inventoryNumber) {
             $potentialRelations = array();
             $thisSortOrder = 1000000000;
@@ -201,39 +213,41 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                     if (!array_key_exists($sortNumber, $relations[$index])) {
                         $relations[$index][$sortNumber] = array();
                     }
-                    $relations[$index][$sortNumber][] = $otherResourceId;
+                    $relations[$index][$sortNumber][$otherResourceId] = $originalFilenames[$otherResourceId];
                 }
             }
-//            var_dump($relations);
             ksort($relations);
             $sortedRelations = array();
-            foreach($relations as $key => $rel) {
+            foreach($relations as $index => $rel) {
                 if(!empty($rel)) {
-                    $sortedRelations[$key] = array();
+                    $sortedRelations[$index] = array();
                     ksort($rel);
-                    foreach ($rel as $k => $ids) {
-                        sort($ids);
-                        $sortedRelations[$key] = $rel;
+                    foreach ($rel as $sortNumber => $ids) {
+                        // Sort resources with the same sort number based on original filename
+                        asort($ids);
+                        $sortedRelations[$index] = $rel;
                     }
                 }
             }
 
-            $relatedRecords = array();
-            foreach($sortedRelations as $key => $rel) {
-                foreach($rel as $k => $ids) {
-                    foreach($ids as $id) {
-                        $relatedRecords[] = $id;
+            $relatedResources = array();
+            foreach($sortedRelations as $index => $rel) {
+                foreach($rel as $sortNumber => $ids) {
+                    foreach($ids as $rsId => $originalFilename) {
+                        $relatedResources[] = $rsId;
                     }
                 }
             }
-            $new = implode(PHP_EOL, $relatedRecords);
-
-            $old = '';
-            if(array_key_exists($resourceId, $oldRelatedRecords)) {
-                $old =  $oldRelatedRecords[$resourceId];
+            $relatedResourcesObj = new RelatedResources();
+            $relatedResourcesObj->setId($resourceId);
+            $relatedResourcesObj->setRelatedResources(implode(',', $relatedResources));
+            $em->persist($relatedResourcesObj);
+            $n++;
+            if($n % 500 == 0) {
+                $em->flush();
             }
-            $this->updateResourceSpaceFields($resourceId, array('relatedrecords' => $old), array('relatedrecords' => $new));
         }
+        $em->flush();
     }
 
     function cacheAllDatahubData($em)
@@ -393,15 +407,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['latestdate'], $datahubData['latestdate']);
                         unset($datahubData['latestdate']);
                     }
-                    //TODO data is getting deleted but not added, what's going on? Could be a doctrine bug.
-/*                    $qb->delete(DatahubData::class, 'data')
-                        ->where('data.id = :id')
-                        ->setParameter('id', $id)
-                        ->getQuery()
-                        ->execute();
-                    $em->flush();*/
-                    //TODO test this (different approach to deleting objects)
-                    //if this does not work, try updating the data in the objects and persisting them
+                    // Delete any data that might already exist for this inventory number
                     $oldData = $em->createQueryBuilder()
                         ->select('i')
                         ->from(DatahubData::class, 'i')

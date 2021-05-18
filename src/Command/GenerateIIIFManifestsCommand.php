@@ -4,8 +4,8 @@ namespace App\Command;
 
 use App\Entity\DatahubData;
 use App\Entity\IIIfManifest;
+use App\Entity\RelatedResources;
 use App\ResourceSpace\ResourceSpace;
-use App\Utils\StringUtil;
 use Doctrine\ORM\EntityManagerInterface;
 use DOMDocument;
 use DOMXPath;
@@ -29,6 +29,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $recommendedForPublication;
     private $namespace;
     private $metadataPrefix;
+
+    private $metadataFields;
+    private $labelField;
+    private $descriptionField;
+    private $attributionField;
 
     private $resourceSpace;
     private $imagehubData;
@@ -86,6 +91,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->namespace = $this->container->getParameter('datahub_namespace');
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
 
+        $this->metadataFields = $this->container->getParameter('iiif_metadata_fields');
+        $this->labelField = $this->container->getParameter('iiif_label');
+        $this->descriptionField = $this->container->getParameter('iiif_description');
+        $this->attributionField = $this->container->getParameter('iiif_attribution');
+
         $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
         $curlOpts = $this->container->getParameter('cantaloupe_curl_opts');
         $this->cantaloupeCurlOpts = array();
@@ -99,51 +109,14 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         if(!preg_match('/^[0-9]+$/', $resourceSpaceId)) {
             $resourceSpaceId = null;
         }
+        // Always create a top-level collection
+        $this->createTopLevelCollection = true;
 
-        $resourceSpaceData = array();
-
-        if($resourceSpaceId != null) {
-            $allResourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
-            foreach($allResourceSpaceData as $id => $data) {
-                $add = false;
-                if($id == $resourceSpaceId) {
-                    $add = true;
-                    // Also regenerate the manifests of all resources that this resource refers to
-                    if(array_key_exists('relatedrecords', $data)) {
-                        $related = explode(PHP_EOL, $data['relatedrecords']);
-                        foreach($related as $relId) {
-                            if(array_key_exists($relId, $allResourceSpaceData) && !array_key_exists($relId, $resourceSpaceData)) {
-                                $resourceSpaceData[$relId] = $allResourceSpaceData[$relId];
-                            }
-                        }
-                    }
-                } else {
-                    // Also regenerate manifests of all resources that refer to this resources
-                    if(array_key_exists('relatedrecords', $data)) {
-                        $related = explode(PHP_EOL, $data['relatedrecords']);
-                    }
-                    if(in_array($resourceSpaceId, $related)) {
-                        $add = true;
-                    }
-                }
-                if($add && !array_key_exists($id, $resourceSpaceData)) {
-                    $resourceSpaceData[$id] = $data;
-                }
-            }
-            // Don't create a top-level collection because we're only generating a single manifest (or a few manifests)
-            $this->createTopLevelCollection = false;
-        } else {
-            $resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
-            $this->createTopLevelCollection = true;
-        }
-
-        if($resourceSpaceData == null) {
+        $resources = $this->resourceSpace->getAllResources();
+        if ($resources === null) {
+            $this->logger->error( 'Error: no resourcespace data.');
             return;
         }
-
-        // Sort ResourceSpace data based on id
-        ksort($resourceSpaceData);
-
         $this->imagehubData = array();
         $this->publicManifestsAdded = array();
 
@@ -151,7 +124,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
         $em = $this->container->get('doctrine')->getManager();
 
-        $this->addExtraFields($resourceSpaceData, $em);
+        foreach($resources as $resource) {
+            $resourceId = $resource['ref'];
+            $resourceData = $this->resourceSpace->getResourceSpaceData($resourceId);
+            $this->addExtraFields($resourceId, $resourceData, $em);
+        }
 
         // For good measure, sort the Imagehub data based on ResourceSpace id
         ksort($this->imagehubData);
@@ -159,59 +136,61 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->generateAndStoreManifests($em);
     }
 
-    private function addExtraFields($resourceSpaceData, $em)
+    private function addExtraFields($resourceId, $resourceData, $em)
     {
+        $isPublic = $this->resourceSpace->isPublicUse($resourceData, $this->publicUse);
+        if($isPublic) {
+            $url = $this->publicUse['public_folder'];
+        } else {
+            $url = $this->publicUse['private_folder'];
+        }
+        $url .= $resourceId;
 
-        $metadataFields = $this->container->getParameter('iiif_metadata_fields');
-        $labelField = $this->container->getParameter('iiif_label');
-        $descriptionField = $this->container->getParameter('iiif_description');
-        $attributionField = $this->container->getParameter('iiif_attribution');
-        foreach($resourceSpaceData as $resourceId => $data) {
-
-            $isPublic = $this->resourceSpace->isPublicUse($data, $this->publicUse);
-            if($isPublic) {
-                $url = $this->publicUse['public_folder'];
-            } else {
-                $url = $this->publicUse['private_folder'];
+        $imageData = $this->getCantaloupeData($url);
+        if($imageData) {
+            $imageData['label'] = $resourceData[$this->labelField];
+            $imageData['description'] = $resourceData[$this->descriptionField];
+            $imageData['attribution'] = $resourceData[$this->attributionField];
+            $imageData['metadata'] = array();
+            foreach ($this->metadataFields as $field => $name) {
+                $imageData['metadata'][$name] = $resourceData[$field];
             }
-            $url .= $resourceId;
-
-            $imageData = $this->getCantaloupeData($url);
-            if($imageData) {
-                $imageData['label'] = $data[$labelField];
-                $imageData['description'] = $data[$descriptionField];
-                $imageData['attribution'] = $data[$attributionField];
-                $imageData['metadata'] = array();
-                foreach ($metadataFields as $field => $name) {
-                    $imageData['metadata'][$name] = $data[$field];
-                }
-                $imageData['related_records'] = explode(PHP_EOL, $data['relatedrecords']);
-                if(!in_array($resourceId, $imageData['related_records'])) {
-                    $imageData['related_records'][] = $resourceId;
-                }
-                $imageData['canvas_base'] = $this->serviceUrl . $resourceId;
-                $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
-                $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
-                $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
-                $imageData['public_use'] = $isPublic;
-                $imageData['recommended_for_publication'] = $this->resourceSpace->isRecommendedForPublication($data, $this->recommendedForPublication);
-                if(!empty($data['sourceinvnr'])) {
-                    $dhData_ = $em->createQueryBuilder()
-                        ->select('i')
-                        ->from(DatahubData::class, 'i')
-                        ->where('i.id = :id')
-                        ->setParameter('id', $data['sourceinvnr'])
-                        ->getQuery()
-                        ->getResult();
-                    foreach ($dhData_ as $data_) {
-                        if ($data_->getName() == 'dh_record_id') {
-                            $imageData['record_id'] = $data_->getValue();
-                            break;
-                        }
+            $relatedResources = $em->createQueryBuilder()
+                ->select('i')
+                ->from(RelatedResources::class, 'i')
+                ->where('i.id = :id')
+                ->setParameter('id', $resourceId)
+                ->getQuery()
+                ->getResult();
+            foreach ($relatedResources as $rel) {
+                $imageData['related_resources'] = explode(',', $rel->getRelatedResources());
+            }
+            // Just to make sure that the 'related resources' always contains a reference to itself
+            if(!in_array($resourceId, $imageData['related_resources'])) {
+                $imageData['related_resources'][] = $resourceId;
+            }
+            $imageData['canvas_base'] = $this->serviceUrl . $resourceId;
+            $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
+            $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
+            $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
+            $imageData['public_use'] = $isPublic;
+            $imageData['recommended_for_publication'] = $this->resourceSpace->isRecommendedForPublication($resourceData, $this->recommendedForPublication);
+            if(!empty($resourceData['sourceinvnr'])) {
+                $dhData_ = $em->createQueryBuilder()
+                    ->select('i')
+                    ->from(DatahubData::class, 'i')
+                    ->where('i.id = :id')
+                    ->setParameter('id', $resourceData['sourceinvnr'])
+                    ->getQuery()
+                    ->getResult();
+                foreach ($dhData_ as $data_) {
+                    if ($data_->getName() == 'dh_record_id') {
+                        $imageData['record_id'] = $data_->getValue();
+                        break;
                     }
                 }
-                $this->imagehubData[$resourceId] = $imageData;
             }
+            $this->imagehubData[$resourceId] = $imageData;
         }
     }
 
@@ -306,8 +285,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $thumbnail = null;
             $isStartCanvas = false;
 
-            // Loop through all works related to this resource (including itself)
-            foreach($data['related_records'] as $relatedRef) {
+            // Loop through all resources related to this resource (including itself)
+            foreach($data['related_resources'] as $relatedRef) {
 
                 if(!array_key_exists($relatedRef, $this->imagehubData)) {
                     continue;
