@@ -5,7 +5,6 @@ parameters:
     resourcespace_api_key: 'e681651ae76d8df9e41fdf4a0fd0bb3955157ab5b2064c950951fd3ccc319c4a'
 
 #    datahub_url: 'http://datahub.kmska.be'
-#    datahub_record_id_prefix: 'oai:datahub.kmska.be:kmska.be:'
     datahub_url: 'http://datahub.iiif.vlaamsekunstcollectie.be'
 
     datahub_username: 'admin'
@@ -13,7 +12,6 @@ parameters:
     datahub_public_id: '3h69zu92njk0okgc484wcgokwg4ck0coco80kw0cowg00s08ow'
     datahub_secret: '4eump0o2sjcwgoggkskggcg00s004ow447cswksw8s8wc4ocsk'
 
-    datahub_record_id_prefix: 'oai:datahub.vlaamsekunstcollectie.be:kmska.be:'
     datahub_language: nl
     datahub_namespace: 'lido'
     datahub_metadataprefix: 'oai_lido'
@@ -21,7 +19,12 @@ parameters:
 
     # The value of 'field' within each definition is the shorthand name of the field in ResourceSpace where this data is sent.
     # These fields should not be manually edited in ResourceSpace, as any data within will automatically be overwritten with data from the Datahub!
+    # Field 'id' must always be present in the data definition (= inventory number, used a primary key in MySQL).
+    # Field 'dh_record_id' is a reserved keyword and should never be used (used to link inventory numbers with datahub records).
     datahub_data_definition:
+        id:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/objectIdentificationWrap/repositoryWrap/repositorySet/workID[@type="object-number"]'
+            field: 'id'
         work_pid:
             xpath: 'objectPublishedID'
             field: 'pidobject'
