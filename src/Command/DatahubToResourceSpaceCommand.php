@@ -147,6 +147,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
             }
         }
+        //TODO sort based on original filename when sort number and inventory number are the same
 
         // Sort by oldest > newest resources to generally improve sort orders in related resources
         ksort($rsIdsToInventoryNumbers);
@@ -392,6 +393,12 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['latestdate'], $datahubData['latestdate']);
                         unset($datahubData['latestdate']);
                     }
+                    $qb->delete(DatahubData::class, 'data')
+                        ->where('data.id = :id')
+                        ->setParameter('id', $id)
+                        ->getQuery()
+                        ->execute();
+                    $em->flush();
 
                     $datahubData['dh_record_id'] = $recordId;
                     //Store all relevant Datahub data in mysql
