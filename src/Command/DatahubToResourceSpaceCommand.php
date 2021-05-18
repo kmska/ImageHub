@@ -2,6 +2,8 @@
 
 namespace App\Command;
 
+use App\Entity\DatahubData;
+use App\Entity\IIIfManifest;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
 use DOMDocument;
@@ -20,8 +22,6 @@ use Symfony\Component\DependencyInjection\ContainerInterface;
 
 class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInterface, LoggerAwareInterface
 {
-    private $datahubRecordIdPrefix;
-
     private $datahubUrl;
     private $datahubLanguage;
     private $namespace;
@@ -29,21 +29,12 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $dataDefinition;
     private $creditLineDefinition;
     private $relatedWorksXpath;
-    private $publicUse;
-    private $recommendedForPublication;
-    private $iiifSortNumber;
 
-    private $datahubEndpoint;
     private $verbose;
 
     private $resourceSpace;
 
-    private $resourceSpaceData;
-    private $datahubData;
-    private $resourceIds;
     private $relations;
-    private $publicImages;
-    private $recommendedImagesForPub;
 
     protected function configure()
     {
@@ -79,313 +70,351 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $this->datahubUrl = $this->container->getParameter('datahub_url');
         }
 
-        $this->datahubRecordIdPrefix = $this->container->getParameter('datahub_record_id_prefix');
-
         $this->datahubLanguage = $this->container->getParameter('datahub_language');
         $this->namespace = $this->container->getParameter('datahub_namespace');
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
         $this->relatedWorksXpath = $this->container->getParameter('datahub_related_works_xpath');
         $this->dataDefinition = $this->container->getParameter('datahub_data_definition');
         $this->creditLineDefinition = $this->container->getParameter('credit_line');
-        $this->publicUse = $this->container->getParameter('public_use');
-        $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
-        $this->iiifSortNumber = $this->container->getParameter('iiif_sort_number');
+        $publicUse = $this->container->getParameter('public_use');
+        $recommendedForPublication = $this->container->getParameter('recommended_for_publication');
+        $iiifSortNumber = $this->container->getParameter('iiif_sort_number');
 
         $this->resourceSpace = new ResourceSpace($this->container);
 
-        $this->resourceSpaceData = $this->resourceSpace->getCurrentResourceSpaceData();
+        $em = $this->container->get('doctrine')->getManager();
 
-        if ($this->resourceSpaceData === null) {
+        $this->cacheAllDatahubData($em);
+        $this->addAllRelations();
+        $this->fixSortOrders();
+
+        $resources = $this->resourceSpace->getAllResources();
+        if ($resources === null) {
             $this->logger->error( 'Error: no resourcespace data.');
             return;
         }
 
+        $recordIds = array();
+        $recordIdsToResourceIds = array();
+        $publicImages = array();
+        $recommendedImagesForPub = array();
+        $resourceSpaceSortNumbers = array();
+        $oldRelatedRecords = array();
+
+        foreach($resources as $resource) {
+            $resourceId = $resource['ref'];
+            $rsData = $this->resourceSpace->getResourceSpaceData($resourceId);
+            $inventoryNumber = $rsData['sourceinvnr'];
+            //TODO remove, this was for testing purposes only
+//            $rsData['sourceinvnr'] = '1';
+            if (!empty($inventoryNumber)) {
+                $rsIdsToInventoryNumbers[$resourceId] = $inventoryNumber;
+                $dhData_ = $em->createQueryBuilder()
+                         ->select('i')
+                         ->from(DatahubData::class, 'i')
+                         ->where('i.id = :id')
+                         ->setParameter('id', $rsData['sourceinvnr'])
+                         ->getQuery()
+                         ->getResult();
+                $dhData = array();
+                $recordId = null;
+                foreach($dhData_ as $data) {
+                    if($data->getName() == 'dh_record_id') {
+                        $recordId = $data->getValue();
+                        if(!array_key_exists($recordId, $recordIdsToResourceIds)) {
+                            $recordIdsToResourceIds[$recordId] = array();
+                        }
+                        $recordIdsToResourceIds[$recordId][] = $resourceId;
+                        $recordIds[$resourceId] = $recordId;
+                    } else {
+                        $dhData[$data->getName()] = $data->getValue();
+                    }
+                }
+                if ($this->resourceSpace->isPublicUse($rsData, $publicUse)) {
+                    $publicImages[] = $resourceId;
+                }
+                if ($this->resourceSpace->isRecommendedForPublication($rsData, $recommendedForPublication)) {
+                    $recommendedImagesForPub[] = $resourceId;
+                }
+                $index = $this->resourceSpace->getIIIFSortNumber($rsData, $iiifSortNumber);
+                if($index > -1) {
+                    $resourceSpaceSortNumbers[$resourceId] = $index;
+                }
+                if(!empty($rsData['relatedrecords'])) {
+                    $oldRelatedRecords[$resourceId] = $rsData['relatedrecords'];
+                }
+                $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $rsData, $dhData);
+                $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
+            }
+        }
+
         // Sort by oldest > newest resources to generally improve sort orders in related resources
-        ksort($this->resourceSpaceData);
+        ksort($rsIdsToInventoryNumbers);
 
-        $this->resourceIds = array();
-        $this->datahubData = array();
-        $this->publicImages = array();
-        $this->recommendedImagesForPub = array();
-        $idsToDo = array();
-        $idsDone = array();
-
-        foreach ($this->resourceSpaceData as $resourceId => $oldData) {
-            if (!empty($oldData['sourceinvnr'])) {
-                $recordId = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($oldData['sourceinvnr']);
-                if ($this->resourceSpace->isPublicUse($oldData, $this->publicUse)) {
-                    $this->publicImages[] = $resourceId;
-                }
-                if ($this->resourceSpace->isRecommendedForPublication($oldData, $this->recommendedForPublication)) {
-                    $this->recommendedImagesForPub[] = $resourceId;
-                }
-                if(!array_key_exists($recordId, $this->resourceIds)) {
-                    $this->resourceIds[$recordId] = array($resourceId);
-                } else {
-                    $this->resourceIds[$recordId][] = $resourceId;
-                }
-                if($resourceSpaceId == null || $resourceSpaceId != null && $resourceSpaceId == $resourceId) {
-                    $this->getDatahubData($recordId);
-
-                    $idsDone[] = $recordId;
-                    foreach ($this->relations[$recordId] as $relatedId => $relation) {
-                        if (!in_array($relatedId, $idsToDo)) {
-                            $idsToDo[] = $relatedId;
+        foreach ($rsIdsToInventoryNumbers as $resourceId => $inventoryNumber) {
+            $potentialRelations = array();
+            $thisSortOrder = 1000000000;
+            // Add all resources of related records (with different inventory numbers)
+            if(array_key_exists($resourceId, $recordIds)) {
+                $recordId = $recordIds[$resourceId];
+                foreach ($this->relations[$recordId] as $k => $v) {
+                    if($v['record_id'] == $recordId) {
+                        $thisSortOrder = $v['sort_order'];
+                    }
+                    if (array_key_exists($k, $recordIdsToResourceIds)) {
+                        foreach ($recordIdsToResourceIds[$k] as $otherResourceId) {
+                            $potentialRelations[$otherResourceId] = $v['sort_order'];
                         }
                     }
                 }
             }
-        }
+            // Add all resources with the same inventory number (including itself)
+            foreach($rsIdsToInventoryNumbers as $rsId => $invNr) {
+                if($invNr == $inventoryNumber) {
+                    $potentialRelations[$rsId] = $thisSortOrder;
+                }
+            }
+            asort($potentialRelations);
 
-        $checkedAll = false;
-        while(!$checkedAll) {
-            $checkedAll = true;
-            foreach($idsToDo as $index => $id) {
-                if(!in_array($id, $idsDone)) {
-                    $checkedAll = false;
-
-                    $this->getDatahubData($id);
-
-                    $idsDone[] = $id;
-                    foreach ($this->relations[$id] as $relatedId => $relation) {
-                        if (!in_array($relatedId, $idsToDo)) {
-                            $idsToDo[] = $relatedId;
-                        }
+            $relations = array();
+            $isThisPublic = in_array($resourceId, $publicImages);
+            $isThisRecommendedForPublication = in_array($resourceId, $recommendedImagesForPub);
+            // Add relations when one of the following coditions is met:
+            // - The 'related' resource is actually itself
+            // - Both resources are for public use and both are recommended for publication
+            // - This resource is not public, but the other one is public (public images added to research images)
+            foreach($potentialRelations as $otherResourceId => $index) {
+                $isOtherPublic = in_array($otherResourceId, $publicImages);
+                $isOtherRecommendedForPublication = in_array($otherResourceId, $recommendedImagesForPub);
+                if ($resourceId == $otherResourceId
+                    || $isThisPublic && $isThisRecommendedForPublication && $isOtherPublic && $isOtherRecommendedForPublication
+                    || !$isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
+                    && $rsIdsToInventoryNumbers[$resourceId] == $rsIdsToInventoryNumbers[$otherResourceId]) {
+                    if (!array_key_exists($index, $relations)) {
+                        $relations[$index] = array();
+                    }
+                    $sortNumber = PHP_INT_MAX;
+                    if (array_key_exists($otherResourceId, $resourceSpaceSortNumbers)) {
+                        $sortNumber = $resourceSpaceSortNumbers[$otherResourceId];
+                    }
+                    if (!array_key_exists($sortNumber, $relations[$index])) {
+                        $relations[$index][$sortNumber] = array();
+                    }
+                    $relations[$index][$sortNumber][] = $otherResourceId;
+                }
+            }
+//            var_dump($relations);
+            ksort($relations);
+            $sortedRelations = array();
+            foreach($relations as $key => $rel) {
+                if(!empty($rel)) {
+                    $sortedRelations[$key] = array();
+                    ksort($rel);
+                    foreach ($rel as $k => $ids) {
+                        sort($ids);
+                        $sortedRelations[$key] = $rel;
                     }
                 }
             }
-        }
 
-        if (count($this->datahubData) > 0) {
-
-            $this->addAllRelations();
-            $this->fixSortOrders();
-
-            foreach ($this->datahubData as $recordId => $newData) {
-                if(array_key_exists($recordId, $this->resourceIds)) {
-                    foreach($this->resourceIds[$recordId] as $resourceId) {
-
-                        $relations = array();
-
-                        $isThisPublic = in_array($resourceId, $this->publicImages);
-                        $isThisRecommendedForPublication = in_array($resourceId, $this->recommendedImagesForPub);
-                        if($isThisPublic && !$isThisRecommendedForPublication) {
-                            if(!in_array($resourceId, $relations)) {
-                                $sortOrder = PHP_INT_MAX;
-                                if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$resourceId])) {
-                                    if(!empty($this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']])) {
-                                        $sortOrder = $this->resourceSpaceData[$resourceId][$this->iiifSortNumber['key']];
-                                    }
-                                }
-                                if(!array_key_exists($sortOrder, $relations)) {
-                                    $relations[$sortOrder] = array();
-                                }
-                                $relations[$sortOrder][] = $resourceId;
-                            }
-                        } else {
-                            foreach ($this->relations[$recordId] as $k => $v) {
-                                if (array_key_exists($k, $this->resourceIds)) {
-                                    foreach ($this->resourceIds[$k] as $otherResourceId) {
-                                        if (array_key_exists($otherResourceId, $this->resourceSpaceData)) {
-                                            $isOtherPublic = in_array($otherResourceId, $this->publicImages);
-                                            $isOtherRecommendedForPublication = in_array($otherResourceId, $this->recommendedImagesForPub);
-                                            // Add relations only when one of the following coditions is met:
-                                            // - The 'related' resource is actually itself
-                                            // - Both resources are for public use (relations between works)
-                                            // - This resource is not public, but the other one is (public images added to research images)
-                                            if ($resourceId == $otherResourceId
-                                                || $isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
-                                                || !$isThisPublic && $isOtherRecommendedForPublication
-                                                    && $this->resourceSpaceData[$resourceId]['sourceinvnr'] == $this->resourceSpaceData[$otherResourceId]['sourceinvnr']) {
-                                                if(!in_array($otherResourceId, $relations)) {
-                                                    $sortOrder = PHP_INT_MAX ;
-                                                    if(array_key_exists($this->iiifSortNumber['key'], $this->resourceSpaceData[$otherResourceId])) {
-                                                        if(!empty($this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']])) {
-                                                            $sortOrder = $this->resourceSpaceData[$otherResourceId][$this->iiifSortNumber['key']];
-                                                        }
-                                                    }
-                                                    if(!array_key_exists($sortOrder, $relations)) {
-                                                        $relations[$sortOrder] = array();
-                                                    }
-                                                    $relations[$sortOrder][] = $otherResourceId;
-                                                }
-                                            }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                        $sortedRelations = array();
-                        foreach($relations as $key => $rel) {
-                            sort($rel);
-                            $sortedRelations[$key] = $rel;
-                        }
-                        ksort($sortedRelations);
-
-                        $relatedRecords = array();
-                        foreach($sortedRelations as $rel) {
-                            foreach($rel as $r) {
-                                $relatedRecords[] = $r;
-                            }
-                        }
-                        $newData['relatedrecords'] = implode(PHP_EOL, $relatedRecords);
-                        $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $this->resourceSpaceData[$resourceId], $newData);
-                        $this->updateResourceSpaceFields($resourceId, $newData);
+            $relatedRecords = array();
+            foreach($sortedRelations as $key => $rel) {
+                foreach($rel as $k => $ids) {
+                    foreach($ids as $id) {
+                        $relatedRecords[] = $id;
                     }
                 }
             }
-        } else {
-            $this->logger->warning('Warning: no data found.');
+            $new = implode(PHP_EOL, $relatedRecords);
+
+            $old = '';
+            if(array_key_exists($resourceId, $oldRelatedRecords)) {
+                $old =  $oldRelatedRecords[$resourceId];
+            }
+            $this->updateResourceSpaceFields($resourceId, array('relatedrecords' => $old), array('relatedrecords' => $new));
         }
     }
 
-    function getDatahubData($recordId)
+    function cacheAllDatahubData($em)
     {
-        // Add a reference to itself
-        $this->relations[$recordId] = array(
-            $recordId => array(
-                'related_work_type' => 'relation',
-                'record_id'         => $recordId,
-                'sort_order'        => 1
-            )
-        );
+        $qb = $em->createQueryBuilder();
+        $qb->delete(DatahubData::class, 'data')->getQuery()->execute();
+        $em->flush();
 
-        $newData = array();
         try {
-            if (!$this->datahubEndpoint)
-                $this->datahubEndpoint = Endpoint::build($this->datahubUrl . '/oai');
+            $datahubEndpoint = Endpoint::build($this->datahubUrl . '/oai');
+            $records = $datahubEndpoint->listRecords($this->metadataPrefix);
+            $n = 0;
+            foreach($records as $record) {
+                $id = null;
+                $datahubData = array();
 
-            $record = $this->datahubEndpoint->getRecord($recordId, $this->metadataPrefix);
-            $data = $record->GetRecord->record->metadata->children($this->namespace, true);
-            $domDoc = new DOMDocument;
-            $domDoc->loadXML($data->asXML());
-            $xpath = new DOMXPath($domDoc);
+                $data = $record->metadata->children($this->namespace, true);
+                $recordId = trim($record->header->identifier);
+                // Add a reference to itself
+                $this->relations[$recordId] = array(
+                    $recordId => array(
+                        'related_work_type' => 'relation',
+                        'record_id'         => $recordId,
+                        'sort_order'        => 1
+                    )
+                );
 
-            foreach ($this->dataDefinition as $key => $dataDef) {
-                if(!array_key_exists('field', $dataDef)) {
-                    continue;
+                if($this->verbose) {
+                    $n++;
+                    if($n % 1000 == 0) {
+//                        echo 'At ' . $n . ' datahub records.' . PHP_EOL;
+                        $this->logger->info('At ' . $n . ' datahub records.');
+                    }
                 }
-                $xpaths = array();
-                if(array_key_exists('xpaths', $dataDef)) {
-                    $xpaths = $dataDef['xpaths'];
-                } else if(array_key_exists('xpath', $dataDef)) {
-                    $xpaths[] = $dataDef['xpath'];
-                }
-                $value = null;
-                foreach($xpaths as $xpath_) {
-                    $query = $this->buildXpath($xpath_, $this->datahubLanguage);
-                    $extracted = $xpath->query($query);
-                    if ($extracted) {
-                        if (count($extracted) > 0) {
-                            foreach ($extracted as $extr) {
-                                if ($extr->nodeValue !== 'n/a') {
-                                    if($value == null) {
-                                        $value = $extr->nodeValue;
-                                    }
-                                    else if($key != 'keywords' || !in_array($extr->nodeValue, explode(",", $value))) {
-                                        $value .= ', ' . $extr->nodeValue;
+
+                $domDoc = new DOMDocument;
+                $domDoc->loadXML($data->asXML());
+                $xpath = new DOMXPath($domDoc);
+
+                foreach ($this->dataDefinition as $key => $dataDef) {
+                    if(!array_key_exists('field', $dataDef)) {
+                        continue;
+                    }
+                    $xpaths = array();
+                    if(array_key_exists('xpaths', $dataDef)) {
+                        $xpaths = $dataDef['xpaths'];
+                    } else if(array_key_exists('xpath', $dataDef)) {
+                        $xpaths[] = $dataDef['xpath'];
+                    }
+                    $value = null;
+                    foreach($xpaths as $xpath_) {
+                        $query = $this->buildXpath($xpath_, $this->datahubLanguage);
+                        $extracted = $xpath->query($query);
+                        if ($extracted) {
+                            if (count($extracted) > 0) {
+                                foreach ($extracted as $extr) {
+                                    if ($extr->nodeValue !== 'n/a') {
+                                        if($value == null) {
+                                            $value = $extr->nodeValue;
+                                        }
+                                        else if($key != 'keywords' || !in_array($extr->nodeValue, explode(",", $value))) {
+                                            $value .= ', ' . $extr->nodeValue;
+                                        }
                                     }
                                 }
                             }
                         }
                     }
-                }
-                if ($value != null) {
-                    $newData[$dataDef['field']] = trim($value);
-                }
-            }
-
-            // Find all related works (hasPart, isPartOf, relatedTo)
-            $query = $this->buildXpath($this->relatedWorksXpath, $this->datahubLanguage);
-            $domNodes = $xpath->query($query);
-            $value = null;
-            if ($domNodes) {
-                if (count($domNodes) > 0) {
-                    foreach ($domNodes as $domNode) {
-                        $relatedRecordId = null;
-                        $relation = null;
-                        $sortOrder = 1;
-                        if($domNode->attributes) {
-                            for($i = 0; $i < $domNode->attributes->length; $i++) {
-                                if($domNode->attributes->item($i)->nodeName == $this->namespace . ':sortorder') {
-                                    $sortOrder = $domNode->attributes->item($i)->nodeValue;
-                                }
-                            }
+                    if ($value != null) {
+                        $value = trim($value);
+                        if($dataDef['field'] == 'id') {
+                            $id = $value;
+                        } else {
+                            $datahubData[$dataDef['field']] = $value;
                         }
-                        $childNodes = $domNode->childNodes;
-                        foreach ($childNodes as $childNode) {
-                            if ($childNode->nodeName == $this->namespace . ':relatedWork') {
-                                $objects = $childNode->childNodes;
-                                foreach($objects as $object) {
-                                    if($object->childNodes) {
-                                        foreach($object->childNodes as $objectId) {
-                                            if($objectId->attributes) {
-                                                for($i = 0; $i < $objectId->attributes->length; $i++) {
-                                                    if($objectId->attributes->item($i)->nodeName == $this->namespace . ':type' && $objectId->attributes->item($i)->nodeValue == 'oai') {
-                                                        $relatedRecordId = $objectId->nodeValue;
+                    }
+                }
+
+                if($id != null) {
+                    // Find all related works (hasPart, isPartOf, relatedTo)
+                    $query = $this->buildXpath($this->relatedWorksXpath, $this->datahubLanguage);
+                    $domNodes = $xpath->query($query);
+                    $value = null;
+                    if ($domNodes) {
+                        if (count($domNodes) > 0) {
+                            foreach ($domNodes as $domNode) {
+                                $relatedRecordId = null;
+                                $relation = null;
+                                $sortOrder = 1;
+                                if ($domNode->attributes) {
+                                    for ($i = 0; $i < $domNode->attributes->length; $i++) {
+                                        if ($domNode->attributes->item($i)->nodeName == $this->namespace . ':sortorder') {
+                                            $sortOrder = $domNode->attributes->item($i)->nodeValue;
+                                        }
+                                    }
+                                }
+                                $childNodes = $domNode->childNodes;
+                                foreach ($childNodes as $childNode) {
+                                    if ($childNode->nodeName == $this->namespace . ':relatedWork') {
+                                        $objects = $childNode->childNodes;
+                                        foreach ($objects as $object) {
+                                            if ($object->childNodes) {
+                                                foreach ($object->childNodes as $objectId) {
+                                                    if ($objectId->attributes) {
+                                                        for ($i = 0; $i < $objectId->attributes->length; $i++) {
+                                                            if ($objectId->attributes->item($i)->nodeName == $this->namespace . ':type' && $objectId->attributes->item($i)->nodeValue == 'oai') {
+                                                                $relatedRecordId = $objectId->nodeValue;
+                                                            }
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    } else if ($childNode->nodeName == $this->namespace . ':relatedWorkRelType') {
+                                        $objects = $childNode->childNodes;
+                                        foreach ($objects as $object) {
+                                            if ($object->nodeName == $this->namespace . ':term') {
+                                                if ($object->attributes) {
+                                                    for ($i = 0; $i < $object->attributes->length; $i++) {
+                                                        if ($object->attributes->item($i)->nodeName == $this->namespace . ':pref' && $object->attributes->item($i)->nodeValue == 'preferred') {
+                                                            $relation = $object->nodeValue;
+                                                        }
                                                     }
                                                 }
                                             }
                                         }
                                     }
                                 }
-                            } else if($childNode->nodeName == $this->namespace . ':relatedWorkRelType') {
-                                $objects = $childNode->childNodes;
-                                foreach($objects as $object) {
-                                    if($object->nodeName == $this->namespace . ':term') {
-                                        if($object->attributes) {
-                                            for($i = 0; $i < $object->attributes->length; $i++) {
-                                                if($object->attributes->item($i)->nodeName == $this->namespace . ':pref' && $object->attributes->item($i)->nodeValue == 'preferred') {
-                                                    $relation = $object->nodeValue;
-                                                }
-                                            }
+
+                                if ($relatedRecordId != null) {
+                                    if (!array_key_exists($relatedRecordId, $this->relations[$recordId])) {
+                                        if ($relation == null) {
+                                            $relation = 'relation';
                                         }
+                                        $arr = array(
+                                            'related_work_type' => $relation,
+                                            'record_id' => $relatedRecordId,
+                                            'sort_order' => $sortOrder
+                                        );
+                                        $this->relations[$recordId][$relatedRecordId] = $arr;
                                     }
                                 }
                             }
                         }
-
-                        if($relatedRecordId != null) {
-                            if(!array_key_exists($relatedRecordId, $this->relations[$recordId])) {
-                                if ($relation == null) {
-                                    $relation = 'relation';
-                                }
-                                $arr = array(
-                                    'related_work_type' => $relation,
-                                    'record_id'         => $relatedRecordId,
-                                    'sort_order'        => $sortOrder
-                                );
-                                $this->relations[$recordId][$relatedRecordId] = $arr;
-                            }
-                        }
                     }
+
+                    // Combine earliest and latest date into one
+                    if(array_key_exists('earliestdate', $datahubData)) {
+                        if(array_key_exists('latestdate', $datahubData)) {
+                            $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['earliestdate'], $datahubData['latestdate']);
+                            unset($datahubData['latestdate']);
+                        } else {
+                            $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['earliestdate'], $datahubData['earliestdate']);
+                        }
+                        unset($datahubData['earliestdate']);
+                    } else if(array_key_exists('latestdate', $datahubData)) {
+                        $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['latestdate'], $datahubData['latestdate']);
+                        unset($datahubData['latestdate']);
+                    }
+
+                    $datahubData['dh_record_id'] = $recordId;
+                    //Store all relevant Datahub data in mysql
+                    foreach($datahubData as $key => $value) {
+                        $data = new DatahubData();
+                        $data->setId($id);
+                        $data->setName($key);
+                        $data->setValue($value);
+                        $em->persist($data);
+                    }
+                    $em->flush();
                 }
             }
+//            var_dump($relations);
         }
         catch(OaipmhException $e) {
-//            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
-            $this->logger->error('Record id ' . $recordId . ' error: ' . $e);
+//            echo 'OAI-PMH error: ' . $e . PHP_EOL;
+            $this->logger->error('OAI-PMH error: ' . $e);
         }
         catch(HttpException $e) {
-//            echo 'Record id ' . $recordId . ' error: ' . $e . PHP_EOL;
-            $this->logger->error('Record id ' . $recordId . ' error: ' . $e);
+//            echo 'OAI-PMH error: ' . $e . PHP_EOL;
+            $this->logger->error('OAI-PMH error: ' . $e);
         }
-
-        // Combine earliest and latest date into one
-        if(array_key_exists('earliestdate', $newData)) {
-            if(array_key_exists('latestdate', $newData)) {
-                $newData['datecreatedofartwork'] = StringUtil::getDateRange($newData['earliestdate'], $newData['latestdate']);
-                unset($newData['latestdate']);
-            } else {
-                $newData['datecreatedofartwork'] = StringUtil::getDateRange($newData['earliestdate'], $newData['earliestdate']);
-            }
-            unset($newData['earliestdate']);
-        } else if(array_key_exists('latestdate', $newData)) {
-            $newData['datecreatedofartwork'] = StringUtil::getDateRange($newData['latestdate'], $newData['latestdate']);
-            unset($newData['latestdate']);
-        }
-
-        $this->datahubData[$recordId] = $newData;
     }
 
     private function addAllRelations()
@@ -511,18 +540,12 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         return $a['sort_order'] - $b['sort_order'];
     }
 
-    function updateResourceSpaceFields($resourceId, $newData)
+    function updateResourceSpaceFields($resourceId, $rsData, $dhData)
     {
-        if(!array_key_exists($resourceId, $this->resourceSpaceData)) {
-            return;
-        }
-
-        $oldData = $this->resourceSpaceData[$resourceId];
-
         $updatedFields = 0;
-        foreach($newData as $key => $value) {
+        foreach($dhData as $key => $value) {
             $update = false;
-            if(!array_key_exists($key, $oldData)) {
+            if(!array_key_exists($key, $rsData)) {
                 if($this->verbose) {
 //                    echo 'Field ' . $key . ' does not exist, should be ' . $value . PHP_EOL;
                     $this->logger->info('Field ' . $key . ' does not exist, should be ' . $value);
@@ -530,7 +553,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 $update = true;
             } else if($key == 'keywords') {
                 $explodeVal = explode(',', $value);
-                $explodeRS = explode(',', $oldData[$key]);
+                $explodeRS = explode(',', $rsData[$key]);
                 $hasAll = true;
                 foreach($explodeVal as $val) {
                     $has = false;
@@ -548,15 +571,15 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 if(!$hasAll) {
                     if($this->verbose) {
 //                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
+                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $rsData[$key]);
                     }
                     $update = true;
                 }
             } else {
-                if($oldData[$key] != $value) {
+                if($rsData[$key] != $value) {
                     if($this->verbose) {
 //                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key]);
+                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $rsData[$key]);
                     }
                     $update = true;
                 }
