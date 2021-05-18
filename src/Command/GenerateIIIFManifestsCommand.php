@@ -2,6 +2,7 @@
 
 namespace App\Command;
 
+use App\Entity\DatahubData;
 use App\Entity\IIIfManifest;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
@@ -28,7 +29,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $recommendedForPublication;
     private $namespace;
     private $metadataPrefix;
-    private $datahubRecordIdPrefix;
 
     private $resourceSpace;
     private $imagehubData;
@@ -85,7 +85,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
         $this->namespace = $this->container->getParameter('datahub_namespace');
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
-        $this->datahubRecordIdPrefix = $this->container->getParameter('datahub_record_id_prefix');
 
         $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
         $curlOpts = $this->container->getParameter('cantaloupe_curl_opts');
@@ -150,16 +149,17 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
         $this->publicUse = $this->container->getParameter('public_use');
         $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
-        $this->addExtraFields($resourceSpaceData);
+        $em = $this->container->get('doctrine')->getManager();
+
+        $this->addExtraFields($resourceSpaceData, $em);
 
         // For good measure, sort the Imagehub data based on ResourceSpace id
         ksort($this->imagehubData);
 
-        $em = $this->container->get('doctrine')->getManager();
         $this->generateAndStoreManifests($em);
     }
 
-    private function addExtraFields($resourceSpaceData)
+    private function addExtraFields($resourceSpaceData, $em)
     {
 
         $metadataFields = $this->container->getParameter('iiif_metadata_fields');
@@ -195,7 +195,21 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
                 $imageData['public_use'] = $isPublic;
                 $imageData['recommended_for_publication'] = $this->resourceSpace->isRecommendedForPublication($data, $this->recommendedForPublication);
-                $imageData['record_id'] = $this->datahubRecordIdPrefix . StringUtil::cleanObjectNumber($data['sourceinvnr']);
+                if(!empty($data['sourceinvnr'])) {
+                    $dhData_ = $em->createQueryBuilder()
+                        ->select('i')
+                        ->from(DatahubData::class, 'i')
+                        ->where('i.id = :id')
+                        ->setParameter('id', $data['sourceinvnr'])
+                        ->getQuery()
+                        ->getResult();
+                    foreach ($dhData_ as $data_) {
+                        if ($data_->getName() == 'dh_record_id') {
+                            $imageData['record_id'] = $data_->getValue();
+                            break;
+                        }
+                    }
+                }
                 $this->imagehubData[$resourceId] = $imageData;
             }
         }
@@ -379,7 +393,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 );
 
                 // Update the LIDO data to include the manifest and thumbnail
-                if($data['recommended_for_publication']) {
+                if($data['recommended_for_publication'] && array_key_exists('record_id', $data)) {
                     if($data['public_use'] || !in_array($data['record_id'], $this->publicManifestsAdded)) {
                         $this->addManifestAndThumbnailToLido($this->namespace, $data['record_id'], $manifestId, $thumbnail);
                         if($data['public_use'] && !in_array($data['record_id'], $this->publicManifestsAdded)) {
