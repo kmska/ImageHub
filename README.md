@@ -34,7 +34,7 @@ Your ResourceSpace installation requires a specific set of metadata fields. You 
 
 Certain metadata fields, most notably dropdown lists (for example Publisher and Cleared for usage) need to be prefilled with the necessary values before adding resources. This can be done either manually through the admin console of ResourceSpace or by using the resourcespace_node_values.sql included in this project.
 
-The Imagehub itself also requires its very own database containing the tables 'iiif_manifest' and 'datahub_data', according to the following structure (utf8mb4 charset is a must for datahub_data, otherwise you'll get character encoding errors):
+The Imagehub itself also requires its very own database containing the tables 'iiif_manifest', 'datahub_data' and 'related_resources', according to the following structure (utf8mb4 charset is a must for datahub_data, otherwise you'll get character encoding errors):
 ```
 CREATE TABLE `iiif_manifest` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
@@ -48,6 +48,11 @@ CREATE TABLE `datahub_data` (
   `value` text NOT NULL,
   PRIMARY KEY (`id`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
+CREATE TABLE `related_resources` (
+  `id` INT UNSIGNED NOT NULL,
+  `related_resources` MEDIUMTEXT NOT NULL,
+  PRIMARY KEY(`id`)
+);
 ```
 A MySQL user is to be created with full access to this table. The username, password and database name can be freely chosen and are configured in the .env file in this repository.
 
