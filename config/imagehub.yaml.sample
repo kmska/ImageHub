@@ -72,7 +72,7 @@ parameters:
           title_field: 'en-titleartwork'
           suffix: 'Collection KMSKA - Flemish Community'
           sabam_suffix: 'Belgium'
-          invnr: 'Inv.nr.'
+          invnr: 'Inv.no.'
           photo: 'Photo'
           photographer: 'Photographer'
 
