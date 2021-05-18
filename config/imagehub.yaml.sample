@@ -40,6 +40,9 @@ parameters:
         creator:
             xpath: 'descriptiveMetadata[@xml:lang="{language}"]/eventWrap/eventSet/event[eventType/term="production"]/eventActor/actorInRole/actor/nameActorSet/appellationValue[@pref="preferred"]'
             field: 'creatorofartworkobje'
+        creator_role:
+            xpath: 'descriptiveMetadata[@xml:lang="{language}"]/eventWrap/eventSet/event[eventType/term="production"]/eventActor/actorInRole/roleActor/term'
+            field: 'roleofcreatorofartworkobje'
         earliest_date:
             xpath: 'descriptiveMetadata[@xml:lang="{language}"]/eventWrap/eventSet/event[eventType/term="production"]/eventDate/date/earliestDate'
             field: 'earliestdate'

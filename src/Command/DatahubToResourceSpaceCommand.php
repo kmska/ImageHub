@@ -407,6 +407,13 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $datahubData['datecreatedofartwork'] = StringUtil::getDateRange($datahubData['latestdate'], $datahubData['latestdate']);
                         unset($datahubData['latestdate']);
                     }
+                    // Combine role and creator name
+                    if(array_key_exists('roleofcreatorofartworkobje', $datahubData)) {
+                        if(array_key_exists('creatorofartworkobje', $datahubData)) {
+                            $datahubData['creatorofartworkobje'] = $datahubData['roleofcreatorofartworkobje'] . ': ' . $datahubData['roleofcreatorofartworkobje'];
+                        }
+                        unset($datahubData['roleofcreatorofartworkobje']);
+                    }
                     // Delete any data that might already exist for this inventory number
                     $oldData = $em->createQueryBuilder()
                         ->select('i')
