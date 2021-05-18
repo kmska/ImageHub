@@ -643,6 +643,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $xpath = preg_replace('/\[([^@])/', '[' . $this->namespace . ':${1}', $xpath);
         $xpath = preg_replace('/\(([^\/])/', '(' . $this->namespace . ':${1}', $xpath);
         $xpath = preg_replace('/\/([^\/])/', '/' . $this->namespace . ':${1}', $xpath);
+        $xpath = str_replace('lido:not(', 'not(', $xpath);
         if(strpos($xpath, '/') !== 0) {
             $xpath = $this->namespace . ':' . $xpath;
         }
