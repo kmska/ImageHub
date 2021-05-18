@@ -6,6 +6,7 @@ use Doctrine\ORM\Mapping as ORM;
 
 /**
  * @ORM\Entity(repositoryClass="App\Repository\IIIfManifestRepository")
+ * @ORM\Table(name="iiif_manifest")
  */
 class IIIfManifest
 {
