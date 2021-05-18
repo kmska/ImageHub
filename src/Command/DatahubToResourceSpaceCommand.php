@@ -414,6 +414,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         }
                         unset($datahubData['roleofcreatorofartworkobje']);
                     }
+                    if(!array_key_exists('creatorofartworkobje', $datahubData)) {
+                        $datahubData['creatorofartworkobje'] = '';
+                    }
                     // Delete any data that might already exist for this inventory number
                     $oldData = $em->createQueryBuilder()
                         ->select('i')
