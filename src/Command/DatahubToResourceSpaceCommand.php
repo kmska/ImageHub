@@ -131,19 +131,12 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $dhData[$data->getName()] = $data->getValue();
                     }
                 }
-                if ($this->resourceSpace->isPublicUse($rsData, $publicUse)) {
-                    $publicImages[] = $resourceId;
-                }
-                if ($this->resourceSpace->isRecommendedForPublication($rsData, $recommendedForPublication)) {
-                    $recommendedImagesForPub[] = $resourceId;
-                }
+                $publicImages[$resourceId] = $this->resourceSpace->isPublicUse($rsData, $publicUse);
+                $recommendedImagesForPub[$resourceId] = $this->resourceSpace->isRecommendedForPublication($rsData, $recommendedForPublication);
                 $index = $this->resourceSpace->getIIIFSortNumber($rsData, $iiifSortNumber);
                 if($index > -1) {
                     $resourceSpaceSortNumbers[$resourceId] = $index;
                 }
-                // Empty the 'related records' field in ResourceSpace
-                // TODO Perhaps we can remove this line after the first run, because we won't need it again after
-                $dhData['relatedrecords'] = '';
                 $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $rsData, $dhData);
                 $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
             }
@@ -191,15 +184,15 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             asort($potentialRelations);
 
             $relations = array();
-            $isThisPublic = in_array($resourceId, $publicImages);
-            $isThisRecommendedForPublication = in_array($resourceId, $recommendedImagesForPub);
+            $isThisPublic = $publicImages[$resourceId];
+            $isThisRecommendedForPublication = $recommendedImagesForPub[$resourceId];
             // Add relations when one of the following coditions is met:
             // - The 'related' resource is actually itself
             // - Both resources are for public use and both are recommended for publication
             // - This resource is not public, but the other one is public (public images added to research images)
             foreach($potentialRelations as $otherResourceId => $index) {
-                $isOtherPublic = in_array($otherResourceId, $publicImages);
-                $isOtherRecommendedForPublication = in_array($otherResourceId, $recommendedImagesForPub);
+                $isOtherPublic = $publicImages[$otherResourceId];
+                $isOtherRecommendedForPublication = $recommendedImagesForPub[$otherResourceId];
                 if ($resourceId == $otherResourceId
                     || $isThisPublic && $isThisRecommendedForPublication && $isOtherPublic && $isOtherRecommendedForPublication
                     || !$isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
