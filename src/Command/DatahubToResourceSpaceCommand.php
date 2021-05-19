@@ -163,6 +163,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $qb->delete(RelatedResources::class, 'data')->getQuery()->execute();
         $em->flush();
 
+        $total = count($rsIdsToInventoryNumbers);
         $n = 0;
         foreach ($rsIdsToInventoryNumbers as $resourceId => $inventoryNumber) {
             $potentialRelations = array();
@@ -243,6 +244,9 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $relatedResourcesObj->setRelatedResources(implode(',', $relatedResources));
             $em->persist($relatedResourcesObj);
             $n++;
+            if($this->verbose) {
+                echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
+            }
             if($n % 500 == 0) {
                 $em->flush();
             }
