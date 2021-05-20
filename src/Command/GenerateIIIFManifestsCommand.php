@@ -165,6 +165,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             foreach ($relatedResources as $rel) {
                 $imageData['related_resources'] = explode(',', $rel->getRelatedResources());
             }
+            if(!array_key_exists('related_resources', $imageData)) {
+                $imageData['related_resources'] = array();
+            }
             // Just to make sure that the 'related resources' always contains a reference to itself
             if(!in_array($resourceId, $imageData['related_resources'])) {
                 $imageData['related_resources'][] = $resourceId;
