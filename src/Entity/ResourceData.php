@@ -12,7 +12,7 @@ class ResourceData
 {
     /**
      * @ORM\Id()
-     * @ORM\Column(type=integer)
+     * @ORM\Column(type="integer")
      */
     private $id;
 
