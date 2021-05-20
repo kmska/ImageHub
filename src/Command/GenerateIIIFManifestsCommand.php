@@ -155,44 +155,13 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             foreach ($this->metadataFields as $field => $name) {
                 $imageData['metadata'][$name] = $resourceData[$field];
             }
-            $relatedResources = $em->createQueryBuilder()
-                ->select('i')
-                ->from(RelatedResources::class, 'i')
-                ->where('i.id = :id')
-                ->setParameter('id', $resourceId)
-                ->getQuery()
-                ->getResult();
-            foreach ($relatedResources as $rel) {
-                $imageData['related_resources'] = explode(',', $rel->getRelatedResources());
-            }
-            if(!array_key_exists('related_resources', $imageData)) {
-                $imageData['related_resources'] = array();
-            }
-            // Just to make sure that the 'related resources' always contains a reference to itself
-            if(!in_array($resourceId, $imageData['related_resources'])) {
-                $imageData['related_resources'][] = $resourceId;
-            }
             $imageData['canvas_base'] = $this->serviceUrl . $resourceId;
             $imageData['manifest_id'] = $this->serviceUrl . $resourceId . '/manifest.json';
             $imageData['image_url'] = $this->cantaloupeUrl . $url . '.tif/full/full/0/default.jpg';
             $imageData['service_id'] = $this->cantaloupeUrl . $url . '.tif';
             $imageData['public_use'] = $isPublic;
             $imageData['recommended_for_publication'] = $this->resourceSpace->isRecommendedForPublication($resourceData, $this->recommendedForPublication);
-            if(!empty($resourceData['sourceinvnr'])) {
-                $dhData_ = $em->createQueryBuilder()
-                    ->select('i')
-                    ->from(DatahubData::class, 'i')
-                    ->where('i.id = :id')
-                    ->setParameter('id', $resourceData['sourceinvnr'])
-                    ->getQuery()
-                    ->getResult();
-                foreach ($dhData_ as $data_) {
-                    if ($data_->getName() == 'dh_record_id') {
-                        $imageData['record_id'] = $data_->getValue();
-                        break;
-                    }
-                }
-            }
+            $imageData['sourceinvnr'] = $resourceData['sourceinvnr'];
             $this->imagehubData[$resourceId] = $imageData;
         }
     }
@@ -288,6 +257,24 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $thumbnail = null;
             $isStartCanvas = false;
 
+            $relatedResources = $em->createQueryBuilder()
+                ->select('i')
+                ->from(RelatedResources::class, 'i')
+                ->where('i.id = :id')
+                ->setParameter('id', $resourceId)
+                ->getQuery()
+                ->getResult();
+            foreach ($relatedResources as $rel) {
+                $data['related_resources'] = explode(',', $rel->getRelatedResources());
+            }
+            if(!array_key_exists('related_resources', $data)) {
+                $data['related_resources'] = array();
+            }
+            // Just to make sure that the 'related resources' always contains a reference to itself
+            if(!in_array($resourceId, $data['related_resources'])) {
+                $data['related_resources'][] = $resourceId;
+            }
+
             // Loop through all resources related to this resource (including itself)
             foreach($data['related_resources'] as $relatedRef) {
 
@@ -374,12 +361,32 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     'metadata' => $manifestMetadata
                 );
 
-                // Update the LIDO data to include the manifest and thumbnail
-                if($data['recommended_for_publication'] && array_key_exists('record_id', $data)) {
-                    if($data['public_use'] || !in_array($data['record_id'], $this->publicManifestsAdded)) {
-                        $this->addManifestAndThumbnailToLido($this->namespace, $data['record_id'], $manifestId, $thumbnail);
-                        if($data['public_use'] && !in_array($data['record_id'], $this->publicManifestsAdded)) {
-                            $this->publicManifestsAdded[] = $data['record_id'];
+                if($data['recommended_for_publication']) {
+
+                    $recordId = null;
+                    if (!empty($data['sourceinvnr'])) {
+                        $dhData_ = $em->createQueryBuilder()
+                            ->select('i')
+                            ->from(DatahubData::class, 'i')
+                            ->where('i.id = :id')
+                            ->setParameter('id', $data['sourceinvnr'])
+                            ->getQuery()
+                            ->getResult();
+                        foreach ($dhData_ as $data_) {
+                            if ($data_->getName() == 'dh_record_id') {
+                                $recordId = $data_->getValue();
+                                break;
+                            }
+                        }
+                    }
+
+                    // Update the LIDO data to include the manifest and thumbnail
+                    if ($recordId != null) {
+                        if ($data['public_use'] || !in_array($recordId, $this->publicManifestsAdded)) {
+                            $this->addManifestAndThumbnailToLido($this->namespace, $recordId, $manifestId, $thumbnail);
+                            if ($data['public_use'] && !in_array($recordId, $this->publicManifestsAdded)) {
+                                $this->publicManifestsAdded[] = $recordId;
+                            }
                         }
                     }
                 }
