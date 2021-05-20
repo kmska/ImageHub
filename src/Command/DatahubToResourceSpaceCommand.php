@@ -3,7 +3,7 @@
 namespace App\Command;
 
 use App\Entity\DatahubData;
-use App\Entity\RelatedResources;
+use App\Entity\ResourceData;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
 use DOMDocument;
@@ -29,6 +29,8 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
     private $dataDefinition;
     private $creditLineDefinition;
     private $relatedWorksXpath;
+
+    private $rsFieldsToPersist;
 
     private $verbose;
 
@@ -80,6 +82,20 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $recommendedForPublication = $this->container->getParameter('recommended_for_publication');
         $iiifSortNumber = $this->container->getParameter('iiif_sort_number');
 
+        $this->rsFieldsToPersist = $this->container->getParameter('iiif_metadata_fields');
+        $iiifLabel = $this->container->getParameter('iiif_label');
+        if(!in_array($iiifLabel, $this->rsFieldsToPersist)) {
+            $this->rsFieldsToPersist[] = $iiifLabel;
+        }
+        $iiifDescription = $this->container->getParameter('iiif_description');
+        if(!in_array($iiifDescription, $this->rsFieldsToPersist)) {
+            $this->rsFieldsToPersist[] = $iiifDescription;
+        }
+        $iiifAttribution = $this->container->getParameter('iiif_attribution');
+        if(!in_array($iiifAttribution, $this->rsFieldsToPersist)) {
+            $this->rsFieldsToPersist[] = $iiifAttribution;
+        }
+
         $this->resourceSpace = new ResourceSpace($this->container);
 
         $em = $this->container->get('doctrine')->getManager();
@@ -101,6 +117,10 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $resourceSpaceSortNumbers = array();
         $originalFilenames = array();
 
+        $qb = $em->createQueryBuilder();
+        $qb->delete(ResourceData::class, 'data')->getQuery()->execute();
+        $em->flush();
+
         $total = count($resources);
         $n = 0;
         foreach($resources as $resource) {
@@ -108,38 +128,74 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $rsData = $this->resourceSpace->getResourceSpaceData($resourceId);
             $inventoryNumber = $rsData['sourceinvnr'];
             $originalFilenames[$resourceId] = $rsData['originalfilename'];
+
+            $isPublic = $this->resourceSpace->isPublicUse($rsData, $publicUse);
+            $resourceData = new ResourceData();
+            $resourceData->setId($resourceId);
+            $resourceData->setName('is_public');
+            $resourceData->setValue($isPublic ? '1' : '0');
+            $em->persist($resourceData);
+
+            $isRecommendedForPub = $this->resourceSpace->isRecommendedForPublication($rsData, $recommendedForPublication);
+            $resourceData = new ResourceData();
+            $resourceData->setId($resourceId);
+            $resourceData->setName('is_recommended_for_pub');
+            $resourceData->setValue($isRecommendedForPub ? '1' : '0');
+            $em->persist($resourceData);
+
+            $dhData = array();
             if (!empty($inventoryNumber)) {
                 $rsIdsToInventoryNumbers[$resourceId] = $inventoryNumber;
                 $dhData_ = $em->createQueryBuilder()
-                         ->select('i')
-                         ->from(DatahubData::class, 'i')
-                         ->where('i.id = :id')
-                         ->setParameter('id', $rsData['sourceinvnr'])
-                         ->getQuery()
-                         ->getResult();
-                $dhData = array();
+                    ->select('i')
+                    ->from(DatahubData::class, 'i')
+                    ->where('i.id = :id')
+                    ->setParameter('id', $rsData['sourceinvnr'])
+                    ->getQuery()
+                    ->getResult();
                 $recordId = null;
-                foreach($dhData_ as $data) {
-                    if($data->getName() == 'dh_record_id') {
+                foreach ($dhData_ as $data) {
+                    if ($data->getName() == 'dh_record_id') {
                         $recordId = $data->getValue();
-                        if(!array_key_exists($recordId, $recordIdsToResourceIds)) {
+                        if (!array_key_exists($recordId, $recordIdsToResourceIds)) {
                             $recordIdsToResourceIds[$recordId] = array();
                         }
                         $recordIdsToResourceIds[$recordId][] = $resourceId;
                         $recordIds[$resourceId] = $recordId;
+                        $resourceData = new ResourceData();
+                        $resourceData->setId($resourceId);
+                        $resourceData->setName('dh_record_id');
+                        $resourceData->setValue($recordId);
+                        $em->persist($resourceData);
                     } else {
                         $dhData[$data->getName()] = $data->getValue();
                     }
                 }
-                $publicImages[$resourceId] = $this->resourceSpace->isPublicUse($rsData, $publicUse);
-                $recommendedImagesForPub[$resourceId] = $this->resourceSpace->isRecommendedForPublication($rsData, $recommendedForPublication);
+                $publicImages[$resourceId] = $isPublic;
+                $recommendedImagesForPub[$resourceId] = $isRecommendedForPub;
                 $index = $this->resourceSpace->getIIIFSortNumber($rsData, $iiifSortNumber);
-                if($index > -1) {
+                if ($index > -1) {
                     $resourceSpaceSortNumbers[$resourceId] = $index;
                 }
                 $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $rsData, $dhData);
                 $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
             }
+            foreach ($this->rsFieldsToPersist as $field) {
+                if (array_key_exists($field, $dhData)) {
+                    $resourceData = new ResourceData();
+                    $resourceData->setId($resourceId);
+                    $resourceData->setName($field);
+                    $resourceData->setValue($dhData[$field]);
+                    $em->persist($resourceData);
+                } else if (!empty($rsData[$field])) {
+                    $resourceData = new ResourceData();
+                    $resourceData->setId($resourceId);
+                    $resourceData->setName($field);
+                    $resourceData->setValue($rsData[$field]);
+                    $em->persist($resourceData);
+                }
+            }
+            $em->flush();
             if($this->verbose) {
                 $n++;
                 if ($n % 1000 == 0) {
@@ -151,10 +207,6 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
 
         // Sort by oldest > newest resources to generally improve sort orders in related resources
         ksort($rsIdsToInventoryNumbers);
-
-        $qb = $em->createQueryBuilder();
-        $qb->delete(RelatedResources::class, 'data')->getQuery()->execute();
-        $em->flush();
 
         $total = count($rsIdsToInventoryNumbers);
         $n = 0;
@@ -219,7 +271,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                     foreach ($rel as $sortNumber => $ids) {
                         // Sort resources with the same sort number based on original filename
                         asort($ids);
-                        $sortedRelations[$index] = $rel;
+                        $sortedRelations[$index][$sortNumber] = $ids;
                     }
                 }
             }
@@ -232,14 +284,15 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                     }
                 }
             }
-            $relatedResourcesObj = new RelatedResources();
+            $relatedResourcesObj = new ResourceData();
             $relatedResourcesObj->setId($resourceId);
-            $relatedResourcesObj->setRelatedResources(implode(',', $relatedResources));
+            $relatedResourcesObj->setName('related_resources');
+            $relatedResourcesObj->setValue(implode(',', $relatedResources));
             $em->persist($relatedResourcesObj);
             $n++;
-            if($this->verbose) {
+/*            if($this->verbose) {
                 echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
-            }
+            }*/
             if($n % 500 == 0) {
                 $em->flush();
             }
