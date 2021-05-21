@@ -6,8 +6,6 @@ use App\Entity\DatahubData;
 use App\Entity\ResourceData;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
-use DOMDocument;
-use DOMXPath;
 use Phpoaipmh\Endpoint;
 use Phpoaipmh\Exception\HttpException;
 use Phpoaipmh\Exception\OaipmhException;
@@ -99,6 +97,8 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $this->resourceSpace = new ResourceSpace($this->container);
 
         $em = $this->container->get('doctrine')->getManager();
+        //Disable SQL logging to improve performance
+        $em->getConnection()->getConfiguration()->setSQLLogger(null);
 
         $this->cacheAllDatahubData($em);
         $this->addAllRelations();
@@ -195,7 +195,11 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                     $em->persist($resourceData);
                 }
             }
-            $em->flush();
+            $n++;
+            if ($n % 20 == 0) {
+                $em->flush();
+                $em->clear();
+            }
             if($this->verbose) {
                 $n++;
                 if ($n % 1000 == 0) {
@@ -204,6 +208,8 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 }
             }
         }
+        $em->flush();
+        $em->clear();
 
         // Sort by oldest > newest resources to generally improve sort orders in related resources
         ksort($rsIdsToInventoryNumbers);
@@ -289,13 +295,18 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $relatedResourcesObj->setName('related_resources');
             $relatedResourcesObj->setValue(implode(',', $relatedResources));
             $em->persist($relatedResourcesObj);
-            $em->flush();
             $n++;
+            if($n % 20 == 0) {
+                $em->flush();
+                $em->clear();
+            }
             if($this->verbose) {
 //                echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
                 $this->logger->info('At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.');
             }
         }
+        $em->flush();
+        $em->clear();
     }
 
     function cacheAllDatahubData($em)
@@ -477,6 +488,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $em->remove($oldD);
                     }
                     $em->flush();
+                    $em->clear();
 
                     $datahubData['dh_record_id'] = $recordId;
                     //Store all relevant Datahub data in mysql
@@ -488,6 +500,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $em->persist($data);
                     }
                     $em->flush();
+                    $em->clear();
                 }
             }
 //            var_dump($relations);
