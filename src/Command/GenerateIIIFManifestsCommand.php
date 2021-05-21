@@ -375,9 +375,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     $this->logger->error('Manifest ' . $manifestId . ' is not valid.');
                     $em->remove($manifestDocument);
                     $em->flush();
+                    $em->clear();
                 }
             }
-            $em->clear();
 
             if($valid) {
                 if($this->verbose) {
@@ -453,9 +453,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     $this->logger->error('Top-level collection ' . $collectionId . ' is not valid.');
                     $em->remove($manifestDocument);
                     $em->flush();
+                    $em->clear();
                 }
             }
-            $em->clear();
 
             if ($this->verbose) {
                 if ($valid) {
@@ -565,6 +565,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $manifestDocument->setData(json_encode($manifest));
         $em->persist($manifestDocument);
         $em->flush();
+        $em->clear();
         return $manifestDocument;
     }
 
