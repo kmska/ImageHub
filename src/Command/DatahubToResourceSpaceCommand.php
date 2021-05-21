@@ -289,15 +289,13 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $relatedResourcesObj->setName('related_resources');
             $relatedResourcesObj->setValue(implode(',', $relatedResources));
             $em->persist($relatedResourcesObj);
+            $em->flush();
             $n++;
-/*            if($this->verbose) {
-                echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
-            }*/
-            if($n % 500 == 0) {
-                $em->flush();
+            if($this->verbose) {
+//                echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
+                $this->logger->info('At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.');
             }
         }
-        $em->flush();
     }
 
     function cacheAllDatahubData($em)
