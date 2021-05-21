@@ -6,6 +6,8 @@ use App\Entity\DatahubData;
 use App\Entity\ResourceData;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
+use DOMDocument;
+use DOMXPath;
 use Phpoaipmh\Endpoint;
 use Phpoaipmh\Exception\HttpException;
 use Phpoaipmh\Exception\OaipmhException;
