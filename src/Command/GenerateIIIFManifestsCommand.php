@@ -123,6 +123,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->publicUse = $this->container->getParameter('public_use');
         $this->recommendedForPublication = $this->container->getParameter('recommended_for_publication');
         $em = $this->container->get('doctrine')->getManager();
+        //Disable SQL logging to improve performance
+        $em->getConnection()->getConfiguration()->setSQLLogger(null);
 
         foreach($resources as $resource) {
             $resourceId = $resource['ref'];
