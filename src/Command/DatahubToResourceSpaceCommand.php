@@ -3,6 +3,7 @@
 namespace App\Command;
 
 use App\Entity\DatahubData;
+use App\Entity\IIIfManifest;
 use App\Entity\ResourceData;
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
@@ -479,18 +480,12 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                         $datahubData['creatorofartworkobje'] = '';
                     }
                     // Delete any data that might already exist for this inventory number
-                    $oldData = $em->createQueryBuilder()
-                        ->select('i')
-                        ->from(DatahubData::class, 'i')
-                        ->where('i.id = :id')
+                    $query = $qb->delete(DatahubData::class, 'data')
+                        ->where('data.id = :id')
                         ->setParameter('id', $id)
-                        ->getQuery()
-                        ->getResult();
-                    foreach($oldData as $oldD) {
-                        $em->remove($oldD);
-                    }
+                        ->getQuery();
+                    $query->execute();
                     $em->flush();
-                    $em->clear();
 
                     $datahubData['dh_record_id'] = $recordId;
                     //Store all relevant Datahub data in mysql
