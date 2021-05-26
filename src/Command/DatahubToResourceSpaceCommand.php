@@ -472,7 +472,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                     // Combine role and creator name
                     if(array_key_exists('roleofcreatorofartworkobje', $datahubData)) {
                         if(array_key_exists('creatorofartworkobje', $datahubData)) {
-                            $datahubData['creatorofartworkobje'] = $datahubData['roleofcreatorofartworkobje'] . ': ' . $datahubData['creatorofartworkobje'];
+                            $datahubData['creatorofartworkobje'] = ucfirst($datahubData['roleofcreatorofartworkobje']) . ': ' . $datahubData['creatorofartworkobje'];
                         }
                         unset($datahubData['roleofcreatorofartworkobje']);
                     }
