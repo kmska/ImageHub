@@ -224,7 +224,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $data['attribution'] = '';
             $data['description'] = '';
             $data['recommended_for_publication'] = false;
-            $data['sourceinvnr'] = '';
+            $data['dh_record_id'] = '';
             foreach($rsData as $d) {
                 if($d->getName() == $this->labelField) {
                     $data['label'] = $d->getValue();
@@ -238,8 +238,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 if($d->getName() == 'is_recommended_for_pub') {
                     $data['recommended_for_publication'] = $d->getValue() === '1';
                 }
-                if($d->getName() == 'sourceinvnr') {
-                    $data['sourceinvnr'] = $d->getValue();
+                if($d->getName() == 'dh_record_id') {
+                    $data['dh_record_id'] = $d->getValue();
                 }
                 if($d->getName() == 'related_resources') {
                     $data['related_resources'] = explode(',', $d->getValue());
@@ -394,26 +394,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 );
 
                 if($data['recommended_for_publication']) {
-
-                    $recordId = null;
-                    if (!empty($data['sourceinvnr'])) {
-                        $dhData_ = $em->createQueryBuilder()
-                            ->select('i')
-                            ->from(DatahubData::class, 'i')
-                            ->where('i.id = :id')
-                            ->setParameter('id', $data['sourceinvnr'])
-                            ->getQuery()
-                            ->getResult();
-                        foreach ($dhData_ as $data_) {
-                            if ($data_->getName() == 'dh_record_id') {
-                                $recordId = $data_->getValue();
-                                break;
-                            }
-                        }
-                    }
-
                     // Update the LIDO data to include the manifest and thumbnail
-                    if ($recordId != null) {
+                    if (!empty($data['dh_record_id'])) {
                         if ($data['public_use'] || !in_array($recordId, $this->publicManifestsAdded)) {
                             $this->addManifestAndThumbnailToLido($this->namespace, $recordId, $manifestId, $thumbnail);
                             if ($data['public_use'] && !in_array($recordId, $this->publicManifestsAdded)) {
