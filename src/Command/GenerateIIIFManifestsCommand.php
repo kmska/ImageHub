@@ -44,6 +44,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $datahubPassword;
     private $datahubPublicId;
     private $datahubSecret;
+    private $legalBodyName;
 
     private $datahubToken;
 
@@ -87,6 +88,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->datahubPassword = $this->container->getParameter('datahub_password');
         $this->datahubPublicId = $this->container->getParameter('datahub_public_id');
         $this->datahubSecret = $this->container->getParameter('datahub_secret');
+        $this->legalBodyName = $this->container->getParameter('legal_body_name');
 
         $this->namespace = $this->container->getParameter('datahub_namespace');
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
@@ -670,7 +672,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $resourceSource->appendChild($legalBodyName);
             $appellationValue = $domDoc->createElement($namespace . ':appellationValue');
             // Hardcoded value
-            $appellationValue->nodeValue = 'Vlaamse Kunstcollectie VZW';
+            $appellationValue->nodeValue = $this->legalBodyName;
             $legalBodyName->appendChild($appellationValue);
 
             // Add thumbnail to the administrative metadata
