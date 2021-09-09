@@ -6,7 +6,7 @@ parameters:
 
 #    datahub_url: 'http://datahub.kmska.be'
     datahub_url: 'http://datahub.iiif.vlaamsekunstcollectie.be'
-    legal_body_name = 'Koninklijk Museum voor Schone Kunsten Antwerpen'
+    legal_body_name: 'Koninklijk Museum voor Schone Kunsten Antwerpen'
 
     datahub_username: 'admin'
     datahub_password: 'admin'
