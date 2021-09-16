@@ -572,8 +572,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         if($this->manifestDb == null) {
             $this->manifestDb = new SQLite3('/tmp/import.iiif_manifests.sqlite');
             $this->manifestDb->exec('DROP TABLE IF EXISTS data');
-            $this->manifestDb->exec('CREATE TABLE data (_id TEXT PRIMARY KEY, manifest TEXT, thumbnail TEXT)');
+            $this->manifestDb->exec('CREATE TABLE data("data" BLOB, "id" TEXT UNIQUE NOT NULL)');
         }
-        $this->manifestDb->exec('INSERT INTO data(_id, manifest, thumbnail) VALUES("' . $sourceinvnr . '", "' . $manifestId . '", "' . $thumbnail . '")');
+        $this->manifestDb->exec('INSERT INTO data(data, id) VALUES(\'{"manifest:"' . $manifestId . '","thumbnail":"' . $thumbnail . '"}\', \'' . $sourceinvnr . '\')');
     }
 }
