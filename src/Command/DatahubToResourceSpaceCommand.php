@@ -211,7 +211,6 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 $em->clear();
             }
             if($this->verbose) {
-                $n++;
                 if ($n % 1000 == 0) {
 //                    echo 'At ' . $n . '/' . $total . ' resources.' . PHP_EOL;
                     $this->logger->info('At ' . $n . '/' . $total . ' resources.');

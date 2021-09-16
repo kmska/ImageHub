@@ -6,6 +6,7 @@
         "ext-ctype": "*",
         "ext-curl": "^7.4",
         "ext-iconv": "*",
+        "ext-sqlite3": "^7.4",
         "caseyamcl/phpoaipmh": "^3.0",
         "simplesamlphp/simplesamlphp": "^1.17",
         "symfony/apache-pack": "^1.0",

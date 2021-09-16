@@ -2,17 +2,14 @@
 
 namespace App\Command;
 
-use App\Entity\DatahubData;
 use App\Entity\IIIfManifest;
 use App\Entity\ResourceData;
 use App\ResourceSpace\ResourceSpace;
 use Doctrine\ORM\EntityManagerInterface;
-use DOMDocument;
-use DOMXPath;
 use Exception;
-use Phpoaipmh\Endpoint;
 use Psr\Log\LoggerAwareInterface;
 use Psr\Log\LoggerInterface;
+use SQLite3;
 use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
@@ -41,6 +38,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
     private $serviceUrl;
     private $createTopLevelCollection;
+
+    private $manifestDb;
 
     protected function configure()
     {
@@ -381,7 +380,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     if (!empty($data['sourceinvnr'])) {
                         $sourceinvnr = $data['sourceinvnr'];
                         if ($data['public_use'] || !in_array($sourceinvnr, $this->publicManifestsAdded)) {
-//                            $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
+                            $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
                             if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
                                 $this->publicManifestsAdded[] = $sourceinvnr;
                             }
@@ -565,5 +564,15 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             }
         }
         return $valid;
+    }
+
+    private function storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail)
+    {
+        if($this->manifestDb == null) {
+            $this->manifestDb = new SQLite3('/tmp/import.iiif_manifests.sqlite');
+            $this->manifestDb->exec('DROP TABLE IF EXISTS data');
+            $this->manifestDb->exec('CREATE TABLE data (_id TEXT PRIMARY KEY, manifest TEXT, thumbnail TEXT)');
+        }
+        $this->manifestDb->exec('INSERT INTO data(_id, manifest, thumbnail) VALUES("' . $sourceinvnr . '", "' . $manifestId . '", "' . $thumbnail . '")');
     }
 }
