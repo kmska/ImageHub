@@ -129,8 +129,15 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         foreach($resources as $resource) {
             $resourceId = $resource['ref'];
             $rsData = $this->resourceSpace->getResourceSpaceData($resourceId);
-            $inventoryNumber = $rsData['sourceinvnr'];
+
             $originalFilenames[$resourceId] = $rsData['originalfilename'];
+
+            $inventoryNumber = $rsData['sourceinvnr'];
+            $resourceData = new ResourceData();
+            $resourceData->setId($resourceId);
+            $resourceData->setName('sourceinvnr');
+            $resourceData->setValue($inventoryNumber);
+            $em->persist($resourceData);
 
             $isPublic = $this->resourceSpace->isPublicUse($rsData, $publicUse);
             $resourceData = new ResourceData();

@@ -38,15 +38,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $resourceSpace;
     private $imageData;
     private $publicManifestsAdded;
-    private $datahubUrl;
-    private $datahubEndpoint;
-    private $datahubUsername;
-    private $datahubPassword;
-    private $datahubPublicId;
-    private $datahubSecret;
-    private $legalBodyName;
-
-    private $datahubToken;
 
     private $serviceUrl;
     private $createTopLevelCollection;
@@ -79,16 +70,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
         // Make sure the service URL name ends with a trailing slash
         $this->serviceUrl = rtrim($this->container->getParameter('service_url'), '/') . '/';
-
-
-        $this->datahubUrl = $this->container->getParameter('datahub_url');
-
-        // Username, password, public ID and secret for datahub PUT requests
-        $this->datahubUsername = $this->container->getParameter('datahub_username');
-        $this->datahubPassword = $this->container->getParameter('datahub_password');
-        $this->datahubPublicId = $this->container->getParameter('datahub_public_id');
-        $this->datahubSecret = $this->container->getParameter('datahub_secret');
-        $this->legalBodyName = $this->container->getParameter('legal_body_name');
 
         $this->namespace = $this->container->getParameter('datahub_namespace');
         $this->metadataPrefix = $this->container->getParameter('datahub_metadataprefix');
@@ -226,7 +207,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $data['attribution'] = '';
             $data['description'] = '';
             $data['recommended_for_publication'] = false;
-            $data['dh_record_id'] = '';
+            $data['sourceinvnr'] = '';
             foreach($rsData as $d) {
                 if($d->getName() == $this->labelField) {
                     $data['label'] = $d->getValue();
@@ -240,8 +221,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                 if($d->getName() == 'is_recommended_for_pub') {
                     $data['recommended_for_publication'] = $d->getValue() === '1';
                 }
-                if($d->getName() == 'dh_record_id') {
-                    $data['dh_record_id'] = $d->getValue();
+                if($d->getName() == 'sourceinvnr') {
+                    $data['sourceinvnr'] = $d->getValue();
                 }
                 if($d->getName() == 'related_resources') {
                     $data['related_resources'] = explode(',', $d->getValue());
@@ -397,12 +378,12 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
                 if($data['recommended_for_publication']) {
                     // Update the LIDO data to include the manifest and thumbnail
-                    if (!empty($data['dh_record_id'])) {
-                        $recordId = $data['dh_record_id'];
-                        if ($data['public_use'] || !in_array($recordId, $this->publicManifestsAdded)) {
-                            $this->addManifestAndThumbnailToLido($this->namespace, $recordId, $manifestId, $thumbnail);
-                            if ($data['public_use'] && !in_array($recordId, $this->publicManifestsAdded)) {
-                                $this->publicManifestsAdded[] = $recordId;
+                    if (!empty($data['sourceinvnr'])) {
+                        $sourceinvnr = $data['sourceinvnr'];
+                        if ($data['public_use'] || !in_array($sourceinvnr, $this->publicManifestsAdded)) {
+//                            $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
+                            if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
+                                $this->publicManifestsAdded[] = $sourceinvnr;
                             }
                         }
                     }
@@ -584,167 +565,5 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             }
         }
         return $valid;
-    }
-
-    private function addManifestAndThumbnailToLido($namespace, $datahubRecordId, $manifestUrl, $thumbnail)
-    {
-        if (!$this->datahubEndpoint) {
-            $this->datahubEndpoint = Endpoint::build($this->datahubUrl . '/oai');
-        }
-
-        $record = null;
-        try {
-            $record = $this->datahubEndpoint->getRecord($datahubRecordId, $this->metadataPrefix);
-        } catch(Exception $e) {
-//            echo 'Error fetching datahub record ' . $datahubRecordId . ': ' . $e->getMessage() . PHP_EOL;
-            $this->logger->error('Error fetching datahub record ' . $datahubRecordId . ': ' . $e->getMessage());
-        }
-        if($record == null) {
-            return;
-        }
-        $data = $record->GetRecord->record->metadata->children($this->namespace, true);
-        $domDoc = new DOMDocument;
-        $domDoc->preserveWhiteSpace = false;
-        $domDoc->formatOutput = true;
-        $domDoc->loadXML($data->asXML());
-        $xpath = new DOMXPath($domDoc);
-
-        $query = 'descendant::lido:administrativeMetadata';
-        $administrativeMetadatas = $xpath->query($query);
-        foreach($administrativeMetadatas as $administrativeMetadata) {
-
-            $resourceWrap = null;
-            foreach($administrativeMetadata->childNodes as $childNode) {
-                if ($childNode->nodeName == $namespace . ':resourceWrap') {
-                    $resourceWrap = $childNode;
-                    if($this->verbose) {
-                        $this->logger->info('Resource wrap found for record ' . $datahubRecordId);
-                    }
-
-                    $domElemsToRemove = array();
-                    // Remove any resourceSets that already contain a manifest URL
-                    foreach($childNode->childNodes as $resourceSet) {
-                        if($resourceSet->nodeName == $namespace . ':resourceSet') {
-                            $remove = false;
-                            foreach($resourceSet->childNodes as $resource) {
-                                if($resource->getAttribute($namespace . ':source') == 'Imagehub' || $resource->getAttribute($namespace . ':source') == 'ImagehubKMSKA') {
-                                    $remove = true;
-                                    break;
-                                }
-                            }
-                            if($remove) {
-                                $domElemsToRemove[] = $resourceSet;
-                            }
-                        }
-                    }
-                    foreach($domElemsToRemove as $resourceSet) {
-                        $childNode->removeChild($resourceSet);
-                    }
-                    break;
-                }
-            }
-
-            if ($resourceWrap == null) {
-                $resourceWrap = $domDoc->createElement($namespace . ':resourceWrap');
-                $administrativeMetadata->appendChild($resourceWrap);
-            }
-
-            // Add manifest URL to the administrative metadata
-            $resourceSet = $domDoc->createElement($namespace . ':resourceSet');
-            $resourceWrap->appendChild($resourceSet);
-
-            $resourceId = $domDoc->createElement($namespace . ':resourceID');
-            $resourceId->setAttribute($namespace . ':type', 'purl');
-            $resourceId->setAttribute($namespace . ':source', 'ImagehubKMSKA');
-            $resourceId->nodeValue = $manifestUrl;
-            $resourceSet->appendChild($resourceId);
-
-            $resourceType = $domDoc->createElement($namespace . ':resourceType');
-            $resourceSet->appendChild($resourceType);
-            $term = $domDoc->createElement($namespace . ':term');
-            $term->setAttribute($namespace . ':pref', 'preferred');
-            $term->nodeValue = 'IIIF Manifest';
-            $resourceType->appendChild($term);
-
-            $resourceSource = $domDoc->createElement($namespace . ':resourceSource');
-            $resourceSet->appendChild($resourceSource);
-            $legalBodyName = $domDoc->createElement($namespace . ':legalBodyName');
-            $resourceSource->appendChild($legalBodyName);
-            $appellationValue = $domDoc->createElement($namespace . ':appellationValue');
-            // Hardcoded value
-            $appellationValue->nodeValue = $this->legalBodyName;
-            $legalBodyName->appendChild($appellationValue);
-
-            // Add thumbnail to the administrative metadata
-            $resourceSet = $domDoc->createElement($namespace . ':resourceSet');
-            $resourceWrap->appendChild($resourceSet);
-
-            $resourceId = $domDoc->createElement($namespace . ':resourceID');
-            $resourceId->setAttribute($namespace . ':type', 'purl');
-            $resourceId->setAttribute($namespace . ':source', 'ImagehubKMSKA');
-            $resourceId->nodeValue = $thumbnail;
-            $resourceSet->appendChild($resourceId);
-
-            $resourceType = $domDoc->createElement($namespace . ':resourceType');
-            $resourceSet->appendChild($resourceType);
-            $term = $domDoc->createElement($namespace . ':term');
-            $term->setAttribute($namespace . ':pref', 'preferred');
-            $term->nodeValue = 'thumbnail';
-            $resourceType->appendChild($term);
-        }
-
-        if($this->datahubToken == null) {
-            $this->initializeDatahubToken();
-        }
-        $this->updateDatahubRecord($datahubRecordId, $domDoc->saveXML());
-    }
-
-    private function initializeDatahubToken()
-    {
-        $ch = curl_init();
-        curl_setopt($ch,CURLOPT_URL, $this->datahubUrl . '/oauth/v2/token');
-        curl_setopt($ch,CURLOPT_POST, true);
-        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch,CURLOPT_POSTFIELDS,
-            'grant_type=password&username=' . urlencode($this->datahubUsername)
-            . '&password=' . urlencode($this->datahubPassword)
-            . '&client_id=' . urlencode($this->datahubPublicId)
-            . '&client_secret=' . urlencode($this->datahubSecret)
-        );
-
-        $resultJson = curl_exec($ch);
-        curl_close($ch);
-
-        $result = json_decode($resultJson);
-        $this->datahubToken = $result->access_token;
-        if($this->verbose) {
-            $this->logger->info('Datahub token: ' . $this->datahubToken);
-        }
-    }
-
-    private function updateDatahubRecord($datahubRecordId, $xmlData)
-    {
-        $ch = curl_init();
-        curl_setopt($ch,CURLOPT_URL, $this->datahubUrl . '/api/v1/data/' . $datahubRecordId . '.lidoxml');
-        curl_setopt($ch, CURLOPT_CUSTOMREQUEST, "PUT");
-        curl_setopt($ch,CURLOPT_RETURNTRANSFER, true);
-        curl_setopt($ch,CURLOPT_POSTFIELDS, $xmlData);
-        curl_setopt($ch, CURLOPT_HTTPHEADER, array(
-                'Content-Type: application/lido+xml',
-                'Content-Length: ' . strlen($xmlData),
-                'Authorization: Bearer ' . $this->datahubToken
-            )
-        );
-
-        $result = curl_exec($ch);
-
-        $responseCode = curl_getinfo($ch, CURLINFO_RESPONSE_CODE);
-        if(!empty($result) || $responseCode != 204) {
-            $this->logger->error('Error updating Datahub record ' . $datahubRecordId . ': ' . PHP_EOL . $result);
-        } else if($this->verbose) {
-            $this->logger->info('Updated Datahub record ' . $datahubRecordId);
-        }
-
-        curl_close($ch);
     }
 }
