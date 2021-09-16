@@ -130,6 +130,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         ksort($this->imageData);
 
         $this->generateAndStoreManifests($em);
+        rename('/tmp/import.iiif_manifests.sqlite', $this->container->get('kernel')->getProjectDir() . '/public/import.iiif_manifests.sqlite');
     }
 
     private function getImageData($resourceId, $isPublic)
@@ -379,11 +380,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     // Update the LIDO data to include the manifest and thumbnail
                     if (!empty($data['sourceinvnr'])) {
                         $sourceinvnr = $data['sourceinvnr'];
-                        if ($data['public_use'] || !in_array($sourceinvnr, $this->publicManifestsAdded)) {
+                        if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
                             $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
-                            if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
+                            //if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
                                 $this->publicManifestsAdded[] = $sourceinvnr;
-                            }
+                            //}
                         }
                     }
                 }
