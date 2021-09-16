@@ -652,40 +652,29 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                     $this->logger->info('Field ' . $key . ' does not exist, should be ' . $value);
                 }
                 $update = true;
-            } else if($key == 'keywords') {
+            } else if(strpos($rsData[$key], ',') !== false) {
+                //ResourceSpace uses commas as field delimiter, so we need to split them up to compare
                 $explodeVal = explode(',', $value);
                 $explodeRS = explode(',', $rsData[$key]);
-                $hasAll = true;
-                foreach($explodeVal as $val) {
-                    $has = false;
-                    foreach($explodeRS as $rs) {
-                        if($rs == $val) {
-                            $has = true;
+                $count = count($explodeVal);
+                if(count($explodeRS) != $count) {
+                    $update = true;
+                } else {
+                    for($i = 0; $i < $count; $i++) {
+                        if($explodeVal[$i] != $explodeRS[$i]) {
+                            $update = true;
                             break;
                         }
                     }
-                    if(!$has) {
-                        $hasAll = false;
-                        break;
-                    }
                 }
-                if(!$hasAll) {
-                    if($this->verbose) {
-//                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $rsData[$key]);
-                    }
-                    $update = true;
-                }
-            } else {
-                if($rsData[$key] != $value) {
-                    if($this->verbose) {
-//                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
-                        $this->logger->info('Mismatching field ' . $key . ', should be ' . $value . ', is ' . $rsData[$key]);
-                    }
-                    $update = true;
-                }
+            } else if($rsData[$key] != $value) {
+                $update = true;
             }
             if($update) {
+                if($this->verbose) {
+//                        echo 'Mismatching field ' . $key . ', should be ' . $value . ', is ' . $oldData[$key] . PHP_EOL;
+                    $this->logger->info('Mismatching field ' . $key . '. Should be "' . $value . '", is "' . $rsData[$key] . '"');
+                }
                 $result = $this->resourceSpace->updateField($resourceId, $key, $value);
                 if($result !== 'true') {
 //                    echo 'Error updating field ' . $key . ' for resource id ' . $resourceId . ':' . PHP_EOL . $result . PHP_EOL;
