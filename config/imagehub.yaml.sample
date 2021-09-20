@@ -5,7 +5,6 @@ parameters:
     resourcespace_api_key: 'e681651ae76d8df9e41fdf4a0fd0bb3955157ab5b2064c950951fd3ccc319c4a'
 
     datahub_url: 'http://datahub.iiif.vlaamsekunstcollectie.be'
-    legal_body_name: 'Vlaamse Kunstcollectie vzw'
 
     datahub_language: nl
     datahub_namespace: 'lido'
