@@ -99,9 +99,6 @@
     "jdorn/sql-formatter": {
         "version": "v1.2.17"
     },
-    "laminas/laminas-code": {
-        "version": "4.4.2"
-    },
     "monolog/monolog": {
         "version": "1.25.2"
     },
@@ -423,9 +420,6 @@
     },
     "twig/twig": {
         "version": "v2.12.1"
-    },
-    "webimpress/safe-writer": {
-        "version": "2.2.0"
     },
     "webmozart/assert": {
         "version": "1.5.0"
