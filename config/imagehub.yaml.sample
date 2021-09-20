@@ -4,14 +4,8 @@ parameters:
     resourcespace_api_username: 'admin'
     resourcespace_api_key: 'e681651ae76d8df9e41fdf4a0fd0bb3955157ab5b2064c950951fd3ccc319c4a'
 
-#    datahub_url: 'http://datahub.kmska.be'
     datahub_url: 'http://datahub.iiif.vlaamsekunstcollectie.be'
-    legal_body_name: 'Koninklijk Museum voor Schone Kunsten Antwerpen'
-
-    datahub_username: 'admin'
-    datahub_password: 'admin'
-    datahub_public_id: '3h69zu92njk0okgc484wcgokwg4ck0coco80kw0cowg00s08ow'
-    datahub_secret: '4eump0o2sjcwgoggkskggcg00s004ow447cswksw8s8wc4ocsk'
+    legal_body_name: 'Vlaamse Kunstcollectie vzw'
 
     datahub_language: nl
     datahub_namespace: 'lido'
@@ -66,7 +60,7 @@ parameters:
         nl:
           field: 'nl-creditline'
           title_field: 'nl-titleartwork'
-          suffix: 'Collectie KMSKA - Vlaamse Gemeenschap'
+          suffix: 'Vlaamse Kunstcollectie'
           sabam_suffix: 'België'
           invnr: 'Inv.nr.'
           photo: 'Foto'
@@ -74,20 +68,20 @@ parameters:
         en:
           field: 'en-creditline'
           title_field: 'en-titleartwork'
-          suffix: 'Collection KMSKA - Flemish Community'
+          suffix: 'Flemish Art Collection'
           sabam_suffix: 'Belgium'
           invnr: 'Inv.no.'
           photo: 'Photo'
           photographer: 'Photographer'
 
-    cantaloupe_url: 'http://imagehub.kmska.be:8182/iiif/2/'
+    cantaloupe_url: 'http://imagehub.vlaamsekunstcollectie.be:8182/iiif/2/'
     cantaloupe_curl_opts:
         CURLOPT_SSL_VERIFYHOST: false
         CURLOPT_SSL_VERIFYPEER: false
 #        CURLOPT_CAINFO: /path/to/cacert.pem
 #        CURLOPT_CAPATH: /path/to/cacert.pem
 
-    service_url: 'https://imagehub.kmska.be/public/iiif/2/'
+    service_url: 'https://imagehub.vlaamsekunstcollectie.be/public/iiif/2/'
 
     validate_manifests: false
     validator_url: 'http://localhost:8080/validate?url='
@@ -108,16 +102,16 @@ parameters:
     iiif_sort_number:
       key: 'iiifsortnumber'
 
-    authentication_url: 'https://imagehub.kmska.be/public/authenticate'
+    authentication_url: 'https://imagehub.vlaamsekunstcollectie.be/public/authenticate'
     authentication_whitelist:
       - '127.0.0.1'
     authentication_service_description:
       confirmLabel: 'Login'
-      description: 'The Royal Museum of Fine Arts Antwerp requires that you log in with your museum account to view this content.'
+      description: 'The Flemish Art Collection requires that you log in with your museum account to view this content.'
       failureDescription: 'Authentication failed'
       failureHeader: 'Authentication Failed'
       header: 'Please log in'
-      label: 'Login to the Royal Museum of Fine Arts Antwerp'
+      label: 'Login to the Flemish Art Collection'
       profile: 'http://iiif.io/api/auth/1/login'
 
     iiif_label: 'nl-titleartwork'
