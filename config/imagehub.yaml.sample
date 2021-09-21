@@ -86,8 +86,11 @@ parameters:
     validator_url: 'http://localhost:8080/validate?url='
 
     adfs_requirements:
-        - key: 'http://schemas.xmlsoap.org/claims/Group'
-          value: 'Domain Users'
+      # Set public to true if this is a publicly visible Imagehub
+      public: true
+      key: 'http://schemas.xmlsoap.org/claims/Group'
+      values:
+        - 'Domain Users'
 
     public_use:
       key: 'clearedforusage'
