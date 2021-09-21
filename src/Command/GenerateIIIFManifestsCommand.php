@@ -574,6 +574,6 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $this->manifestDb->exec('DROP TABLE IF EXISTS data');
             $this->manifestDb->exec('CREATE TABLE data("data" BLOB, "id" TEXT UNIQUE NOT NULL)');
         }
-        $this->manifestDb->exec('INSERT INTO data(data, id) VALUES(\'{"manifest:"' . $manifestId . '","thumbnail":"' . $thumbnail . '"}\', \'' . $sourceinvnr . '\')');
+        $this->manifestDb->exec('INSERT INTO data(data, id) VALUES(\'{"manifest":"' . $manifestId . '","thumbnail":"' . $thumbnail . '"}\', \'' . $sourceinvnr . '\')');
     }
 }
