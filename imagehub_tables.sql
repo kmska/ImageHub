@@ -8,7 +8,7 @@ CREATE TABLE IF NOT EXISTS `iiif_manifest` (
 CREATE TABLE IF NOT EXISTS `datahub_data` (
   `id` VARCHAR(255) NOT NULL,
   `name` VARCHAR(255) NOT NULL,
-  `value` text NOT NULL,
+  `value` TEXT NOT NULL,
   PRIMARY KEY (`id`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
 
