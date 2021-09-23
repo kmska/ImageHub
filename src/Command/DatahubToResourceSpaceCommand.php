@@ -85,16 +85,16 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
 
         $this->rsFieldsToPersist = $this->container->getParameter('iiif_metadata_fields');
         $iiifLabel = $this->container->getParameter('iiif_label');
-        if(!in_array($iiifLabel, $this->rsFieldsToPersist)) {
-            $this->rsFieldsToPersist[] = $iiifLabel;
+        if(!array_key_exists($iiifLabel, $this->rsFieldsToPersist)) {
+            $this->rsFieldsToPersist[$iiifLabel] = $iiifLabel;
         }
         $iiifDescription = $this->container->getParameter('iiif_description');
-        if(!in_array($iiifDescription, $this->rsFieldsToPersist)) {
-            $this->rsFieldsToPersist[] = $iiifDescription;
+        if(!array_key_exists($iiifDescription, $this->rsFieldsToPersist)) {
+            $this->rsFieldsToPersist[$iiifDescription] = $iiifDescription;
         }
         $iiifAttribution = $this->container->getParameter('iiif_attribution');
-        if(!in_array($iiifAttribution, $this->rsFieldsToPersist)) {
-            $this->rsFieldsToPersist[] = $iiifAttribution;
+        if(!array_key_exists($iiifAttribution, $this->rsFieldsToPersist)) {
+            $this->rsFieldsToPersist[$iiifAttribution] = $iiifAttribution;
         }
 
         $this->resourceSpace = new ResourceSpace($this->container);
@@ -133,11 +133,14 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
             $originalFilenames[$resourceId] = $rsData['originalfilename'];
 
             $inventoryNumber = $rsData['sourceinvnr'];
+
             $resourceData = new ResourceData();
-            $resourceData->setId($resourceId);
-            $resourceData->setName('sourceinvnr');
-            $resourceData->setValue($inventoryNumber);
-            $em->persist($resourceData);
+            if(!array_key_exists('sourceinvnr', $this->rsFieldsToPersist)) {
+                $resourceData->setId($resourceId);
+                $resourceData->setName('sourceinvnr');
+                $resourceData->setValue($inventoryNumber);
+                $em->persist($resourceData);
+            }
 
             $isPublic = $this->resourceSpace->isPublicUse($rsData, $publicUse);
             $resourceData = new ResourceData();
@@ -190,18 +193,18 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $rsData, $dhData);
                 $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
             }
-            foreach ($this->rsFieldsToPersist as $field) {
-                if (array_key_exists($field, $dhData)) {
+            foreach ($this->rsFieldsToPersist as $key => $value) {
+                if (array_key_exists($key, $dhData)) {
                     $resourceData = new ResourceData();
                     $resourceData->setId($resourceId);
-                    $resourceData->setName($field);
-                    $resourceData->setValue($dhData[$field]);
+                    $resourceData->setName($key);
+                    $resourceData->setValue($dhData[$key]);
                     $em->persist($resourceData);
-                } else if (!empty($rsData[$field])) {
+                } else if (!empty($rsData[$key])) {
                     $resourceData = new ResourceData();
                     $resourceData->setId($resourceId);
-                    $resourceData->setName($field);
-                    $resourceData->setValue($rsData[$field]);
+                    $resourceData->setName($key);
+                    $resourceData->setValue($rsData[$key]);
                     $em->persist($resourceData);
                 }
             }
