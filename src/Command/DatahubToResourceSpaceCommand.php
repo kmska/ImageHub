@@ -190,18 +190,18 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
                 $this->resourceSpace->generateCreditLines($this->creditLineDefinition, $rsData, $dhData);
                 $this->updateResourceSpaceFields($resourceId, $rsData, $dhData);
             }
-            foreach ($this->rsFieldsToPersist as $field) {
-                if (array_key_exists($field, $dhData)) {
+            foreach ($this->rsFieldsToPersist as $key => $value) {
+                if (array_key_exists($key, $dhData)) {
                     $resourceData = new ResourceData();
                     $resourceData->setId($resourceId);
-                    $resourceData->setName($field);
-                    $resourceData->setValue($dhData[$field]);
+                    $resourceData->setName($key);
+                    $resourceData->setValue($dhData[$key]);
                     $em->persist($resourceData);
-                } else if (!empty($rsData[$field])) {
+                } else if (!empty($rsData[$key])) {
                     $resourceData = new ResourceData();
                     $resourceData->setId($resourceId);
-                    $resourceData->setName($field);
-                    $resourceData->setValue($rsData[$field]);
+                    $resourceData->setName($key);
+                    $resourceData->setValue($rsData[$key]);
                     $em->persist($resourceData);
                 }
             }
