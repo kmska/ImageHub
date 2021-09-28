@@ -37,7 +37,7 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
 
     private $resourceSpace;
 
-    private $relations;
+    private $relations = array();
 
     protected function configure()
     {
