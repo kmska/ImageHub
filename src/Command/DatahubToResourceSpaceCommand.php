@@ -103,9 +103,11 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         //Disable SQL logging to improve performance
         $em->getConnection()->getConfiguration()->setSQLLogger(null);
 
-        $this->cacheAllDatahubData($em);
-        $this->addAllRelations();
-        $this->fixSortOrders();
+        if($resourceSpaceId == null) {
+            $this->cacheAllDatahubData($em);
+            $this->addAllRelations();
+            $this->fixSortOrders();
+        }
 
         $resources = $this->resourceSpace->getAllResources();
         if ($resources === null) {
@@ -223,102 +225,104 @@ class DatahubToResourceSpaceCommand extends Command implements ContainerAwareInt
         $em->flush();
         $em->clear();
 
-        // Sort by oldest > newest resources to generally improve sort orders in related resources
-        ksort($rsIdsToInventoryNumbers);
+        if($resourceSpaceId == null) {
+            // Sort by oldest > newest resources to generally improve sort orders in related resources
+            ksort($rsIdsToInventoryNumbers);
 
-        $total = count($rsIdsToInventoryNumbers);
-        $n = 0;
-        foreach ($rsIdsToInventoryNumbers as $resourceId => $inventoryNumber) {
-            $potentialRelations = array();
-            $thisSortOrder = 1000000000;
-            // Add all resources of related records (with different inventory numbers)
-            if(array_key_exists($resourceId, $recordIds)) {
-                $recordId = $recordIds[$resourceId];
-                foreach ($this->relations[$recordId] as $k => $v) {
-                    if($v['record_id'] == $recordId) {
-                        $thisSortOrder = $v['sort_order'];
-                    }
-                    if (array_key_exists($k, $recordIdsToResourceIds)) {
-                        foreach ($recordIdsToResourceIds[$k] as $otherResourceId) {
-                            $potentialRelations[$otherResourceId] = $v['sort_order'];
+            $total = count($rsIdsToInventoryNumbers);
+            $n = 0;
+            foreach ($rsIdsToInventoryNumbers as $resourceId => $inventoryNumber) {
+                $potentialRelations = array();
+                $thisSortOrder = 1000000000;
+                // Add all resources of related records (with different inventory numbers)
+                if(array_key_exists($resourceId, $recordIds)) {
+                    $recordId = $recordIds[$resourceId];
+                    foreach ($this->relations[$recordId] as $k => $v) {
+                        if($v['record_id'] == $recordId) {
+                            $thisSortOrder = $v['sort_order'];
+                        }
+                        if (array_key_exists($k, $recordIdsToResourceIds)) {
+                            foreach ($recordIdsToResourceIds[$k] as $otherResourceId) {
+                                $potentialRelations[$otherResourceId] = $v['sort_order'];
+                            }
                         }
                     }
                 }
-            }
-            // Add all resources with the same inventory number (including itself)
-            foreach($rsIdsToInventoryNumbers as $rsId => $invNr) {
-                if($invNr == $inventoryNumber) {
-                    $potentialRelations[$rsId] = $thisSortOrder;
+                // Add all resources with the same inventory number (including itself)
+                foreach($rsIdsToInventoryNumbers as $rsId => $invNr) {
+                    if($invNr == $inventoryNumber) {
+                        $potentialRelations[$rsId] = $thisSortOrder;
+                    }
                 }
-            }
-            asort($potentialRelations);
+                asort($potentialRelations);
 
-            $relations = array();
-            $isThisPublic = $publicImages[$resourceId];
-            $isThisRecommendedForPublication = $recommendedImagesForPub[$resourceId];
-            // Add relations when one of the following coditions is met:
-            // - The 'related' resource is actually itself
-            // - Both resources are for public use and both are recommended for publication
-            // - This resource is not public, but the other one is public (public images added to research images)
-            foreach($potentialRelations as $otherResourceId => $index) {
-                $isOtherPublic = $publicImages[$otherResourceId];
-                $isOtherRecommendedForPublication = $recommendedImagesForPub[$otherResourceId];
-                if ($resourceId == $otherResourceId
-                    || $isThisPublic && $isThisRecommendedForPublication && $isOtherPublic && $isOtherRecommendedForPublication
-                    || !$isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
-                    && $rsIdsToInventoryNumbers[$resourceId] == $rsIdsToInventoryNumbers[$otherResourceId]) {
-                    if (!array_key_exists($index, $relations)) {
-                        $relations[$index] = array();
-                    }
-                    $sortNumber = PHP_INT_MAX;
-                    if (array_key_exists($otherResourceId, $resourceSpaceSortNumbers)) {
-                        $sortNumber = $resourceSpaceSortNumbers[$otherResourceId];
-                    }
-                    if (!array_key_exists($sortNumber, $relations[$index])) {
-                        $relations[$index][$sortNumber] = array();
-                    }
-                    $relations[$index][$sortNumber][$otherResourceId] = $originalFilenames[$otherResourceId];
-                }
-            }
-            ksort($relations);
-            $sortedRelations = array();
-            foreach($relations as $index => $rel) {
-                if(!empty($rel)) {
-                    $sortedRelations[$index] = array();
-                    ksort($rel);
-                    foreach ($rel as $sortNumber => $ids) {
-                        // Sort resources with the same sort number based on original filename
-                        asort($ids);
-                        $sortedRelations[$index][$sortNumber] = $ids;
+                $relations = array();
+                $isThisPublic = $publicImages[$resourceId];
+                $isThisRecommendedForPublication = $recommendedImagesForPub[$resourceId];
+                // Add relations when one of the following coditions is met:
+                // - The 'related' resource is actually itself
+                // - Both resources are for public use and both are recommended for publication
+                // - This resource is not public, but the other one is public (public images added to research images)
+                foreach($potentialRelations as $otherResourceId => $index) {
+                    $isOtherPublic = $publicImages[$otherResourceId];
+                    $isOtherRecommendedForPublication = $recommendedImagesForPub[$otherResourceId];
+                    if ($resourceId == $otherResourceId
+                        || $isThisPublic && $isThisRecommendedForPublication && $isOtherPublic && $isOtherRecommendedForPublication
+                        || !$isThisPublic && $isOtherPublic && $isOtherRecommendedForPublication
+                        && $rsIdsToInventoryNumbers[$resourceId] == $rsIdsToInventoryNumbers[$otherResourceId]) {
+                        if (!array_key_exists($index, $relations)) {
+                            $relations[$index] = array();
+                        }
+                        $sortNumber = PHP_INT_MAX;
+                        if (array_key_exists($otherResourceId, $resourceSpaceSortNumbers)) {
+                            $sortNumber = $resourceSpaceSortNumbers[$otherResourceId];
+                        }
+                        if (!array_key_exists($sortNumber, $relations[$index])) {
+                            $relations[$index][$sortNumber] = array();
+                        }
+                        $relations[$index][$sortNumber][$otherResourceId] = $originalFilenames[$otherResourceId];
                     }
                 }
-            }
+                ksort($relations);
+                $sortedRelations = array();
+                foreach($relations as $index => $rel) {
+                    if(!empty($rel)) {
+                        $sortedRelations[$index] = array();
+                        ksort($rel);
+                        foreach ($rel as $sortNumber => $ids) {
+                            // Sort resources with the same sort number based on original filename
+                            asort($ids);
+                            $sortedRelations[$index][$sortNumber] = $ids;
+                        }
+                    }
+                }
 
-            $relatedResources = array();
-            foreach($sortedRelations as $index => $rel) {
-                foreach($rel as $sortNumber => $ids) {
-                    foreach($ids as $rsId => $originalFilename) {
-                        $relatedResources[] = $rsId;
+                $relatedResources = array();
+                foreach($sortedRelations as $index => $rel) {
+                    foreach($rel as $sortNumber => $ids) {
+                        foreach($ids as $rsId => $originalFilename) {
+                            $relatedResources[] = $rsId;
+                        }
                     }
                 }
+                $relatedResourcesObj = new ResourceData();
+                $relatedResourcesObj->setId($resourceId);
+                $relatedResourcesObj->setName('related_resources');
+                $relatedResourcesObj->setValue(implode(',', $relatedResources));
+                $em->persist($relatedResourcesObj);
+                $n++;
+                if($n % 20 == 0) {
+                    $em->flush();
+                    $em->clear();
+                }
+                if($this->verbose) {
+    //                echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
+                    $this->logger->info('At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.');
+                }
             }
-            $relatedResourcesObj = new ResourceData();
-            $relatedResourcesObj->setId($resourceId);
-            $relatedResourcesObj->setName('related_resources');
-            $relatedResourcesObj->setValue(implode(',', $relatedResources));
-            $em->persist($relatedResourcesObj);
-            $n++;
-            if($n % 20 == 0) {
-                $em->flush();
-                $em->clear();
-            }
-            if($this->verbose) {
-//                echo 'At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.' . PHP_EOL;
-                $this->logger->info('At id ' . $resourceId . ' - ' . $n . '/' . $total . ' relations.');
-            }
+            $em->flush();
+            $em->clear();
         }
-        $em->flush();
-        $em->clear();
     }
 
     function cacheAllDatahubData($em)
