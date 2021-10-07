@@ -40,6 +40,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $createTopLevelCollection;
 
     private $manifestDb;
+    private $placeholderId;
 
     protected function configure()
     {
@@ -77,6 +78,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->labelField = $this->container->getParameter('iiif_label');
         $this->descriptionField = $this->container->getParameter('iiif_description');
         $this->attributionField = $this->container->getParameter('iiif_attribution');
+
+        $this->placeholderId = $this->container->getParameter('placeholder_id');
 
         $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
         $curlOpts = $this->container->getParameter('cantaloupe_curl_opts');
@@ -375,6 +378,10 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     'label' => $data['label'],
                     'metadata' => $manifestMetadata
                 );
+
+                if($resourceId == $this->placeholderId) {
+                    $this->storeManifestAndThumbnail('placeholder_manifest', $manifestId, $thumbnail);
+                }
 
                 if($data['recommended_for_publication']) {
                     // Update the LIDO data to include the manifest and thumbnail
