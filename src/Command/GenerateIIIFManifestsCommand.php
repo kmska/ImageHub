@@ -92,7 +92,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $resourceSpaceId = null;
         }
         // Always create a top-level collection
-        $this->createTopLevelCollection = true;
+        $this->createTopLevelCollection = $resourceSpaceId == null;
 
         $resources = $this->resourceSpace->getAllResources();
         if ($resources === null) {
@@ -130,7 +130,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         ksort($this->imageData);
 
         $this->generateAndStoreManifests($em);
-        rename('/tmp/import.iiif_manifests.sqlite', $this->container->get('kernel')->getProjectDir() . '/public/import.iiif_manifests.sqlite');
+        if($this->createTopLevelCollection) {
+            rename('/tmp/import.iiif_manifests.sqlite', $this->container->get('kernel')->getProjectDir() . '/public/import.iiif_manifests.sqlite');
+        }
     }
 
     private function getImageData($resourceId, $isPublic)
@@ -376,7 +378,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     'metadata' => $manifestMetadata
                 );
 
-                if($data['recommended_for_publication']) {
+                if($this->createTopLevelCollection && $data['recommended_for_publication']) {
                     // Update the LIDO data to include the manifest and thumbnail
                     if (!empty($data['sourceinvnr'])) {
                         $sourceinvnr = $data['sourceinvnr'];
