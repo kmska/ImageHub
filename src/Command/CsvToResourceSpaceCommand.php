@@ -4,14 +4,14 @@ namespace App\Command;
 
 use App\ResourceSpace\ResourceSpace;
 use App\Utils\StringUtil;
-use Exception;
-use Phpoaipmh\Endpoint;
-use Symfony\Bundle\FrameworkBundle\Command\ContainerAwareCommand;
+use Symfony\Component\Console\Command\Command;
 use Symfony\Component\Console\Input\InputArgument;
 use Symfony\Component\Console\Input\InputInterface;
 use Symfony\Component\Console\Output\OutputInterface;
+use Symfony\Component\DependencyInjection\ContainerAwareInterface;
+use Symfony\Component\DependencyInjection\ContainerInterface;
 
-class CsvToResourceSpaceCommand extends ContainerAwareCommand
+class CsvToResourceSpaceCommand extends Command implements ContainerAwareInterface
 {
     private $resourceSpace;
 
@@ -24,20 +24,20 @@ class CsvToResourceSpaceCommand extends ContainerAwareCommand
             ->setHelp('');
     }
 
+    public function setContainer(ContainerInterface $container = null)
+    {
+        $this->container = $container;
+    }
+
     protected function execute(InputInterface $input, OutputInterface $output)
     {
         $csvFile = $input->getArgument('csv');
 
-        $this->resourceSpace = new ResourceSpace($this->getContainer());
+        $this->resourceSpace = new ResourceSpace($this->container);
 
-        $csvData = $this->readRecordIdsFromCsv($csvFile);
+        $csvData = $this->readRecordsFromCsv($csvFile);
 
         $resourceSpaceFilenames = $this->resourceSpace->getAllOriginalFilenames();
-
-        $datahubUrl = $this->getContainer()->getParameter('datahub_url');
-        $metadataPrefix = $this->getContainer()->getParameter('datahub_metadataprefix');
-        $datahubDatapidPrefix = $this->getContainer()->getParameter('datahub_record_id_prefix');
-        $datahubEndpoint = null;
 
         foreach($csvData as $csvLine) {
 
@@ -47,27 +47,11 @@ class CsvToResourceSpaceCommand extends ContainerAwareCommand
                 continue;
             }
 
-            try {
-                if (!$datahubEndpoint) {
-                    $datahubEndpoint = Endpoint::build($datahubUrl . '/oai');
-                }
-
-                $datahubEndpoint->getRecord($datahubDatapidPrefix . StringUtil::cleanObjectNumber($csvLine['sourceinvnr']), $metadataPrefix);
-            } catch(Exception $exception) {
-                echo $exception . PHP_EOL;
-            }
-
             $id = $resourceSpaceFilenames[$filename];
 
             foreach($csvLine as $key => $value) {
                 if($value != 'NULL') {
-                    // Combine start date and end into one date
-                    // TODO clean up the CSV so we don't need to do this anymore
-                    if ($key == 'datecreatedofartwork-start') {
-                        if ($value != '0') {
-                            $this->resourceSpace->updateField($id, 'datecreatedofartwork', StringUtil::getDateRange($value, $csvLine['datecreatedofartwork-end']));
-                        }
-                    } else if ($key != 'originalfilename' && $key != 'datecreatedofartwork-end') {
+                    if ($key != 'originalfilename') {
                         $this->resourceSpace->updateField($id, $key, $value);
                     }
                 }
@@ -75,7 +59,7 @@ class CsvToResourceSpaceCommand extends ContainerAwareCommand
         }
     }
 
-    private function readRecordIdsFromCsv($csvFile)
+    private function readRecordsFromCsv($csvFile)
     {
         $csvData = array();
         if (($handle = fopen($csvFile, "r")) !== false) {
