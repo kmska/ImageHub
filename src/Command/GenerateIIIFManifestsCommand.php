@@ -324,6 +324,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             }
 
             $manifestId = $this->serviceUrl . $resourceId . '/manifest.json';
+            $manifestMetadata[] = array(
+                'label' => 'Manifest',
+                'value' => '<a href="' . $manifestId . '">' . $manifestId . '</a>';
+            );
+
             // Generate the whole manifest
             $manifest = array(
                 '@context'         => 'http://iiif.io/api/presentation/2/context.json',
