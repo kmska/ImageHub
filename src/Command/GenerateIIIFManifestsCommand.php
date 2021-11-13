@@ -326,7 +326,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $manifestId = $this->serviceUrl . $resourceId . '/manifest.json';
             $manifestMetadata[] = array(
                 'label' => 'Manifest',
-                'value' => '<a href="' . $manifestId . '">' . $manifestId . '</a>';
+                'value' => '<a href="' . $manifestId . '">' . $manifestId . '</a>'
             );
 
             // Generate the whole manifest
