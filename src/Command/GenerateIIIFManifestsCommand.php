@@ -95,7 +95,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         // Always create a top-level collection
         $this->createTopLevelCollection = $resourceSpaceId == null;
 
-        $this->resourceSpaceManifestField = $this-container->getParameter('resourcespace_manifest_field');
+        $this->resourceSpaceManifestField = $this->container->getParameter('resourcespace_manifest_field');
 
         $resources = $this->resourceSpace->getAllResources();
         if ($resources === null) {
@@ -392,7 +392,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     if($result !== 'true') {
     //                    echo 'Error adding manifest URL to resource with id ' . $resourceId . ':' . PHP_EOL . $result . PHP_EOL;
                         $this->logger->error('Error adding manifest URL to resource with id ' . $resourceId . ':' . PHP_EOL . $result);
-                    } else if($verbose) {
+                    } else if($this->verbose) {
                         $this->logger->info('Added manifest URL to resource with id ' . $resourceId);
                     }
                 }
