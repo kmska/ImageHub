@@ -82,6 +82,8 @@ parameters:
 
     service_url: 'https://imagehub.vlaamsekunstcollectie.be/public/iiif/2/'
 
+    resourcespace_manifest_field: 'pidafbeelding'
+
     validate_manifests: false
     validator_url: 'http://localhost:8080/validate?url='
 

@@ -38,6 +38,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
     private $serviceUrl;
     private $createTopLevelCollection;
+    private $resourceSpaceManifestField;
 
     private $manifestDb;
 
@@ -93,6 +94,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         }
         // Always create a top-level collection
         $this->createTopLevelCollection = $resourceSpaceId == null;
+
+        $this->resourceSpaceManifestField = $this-container->getParameter('resourcespace_manifest_field');
 
         $resources = $this->resourceSpace->getAllResources();
         if ($resources === null) {
@@ -382,6 +385,17 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     'label' => $data['label'],
                     'metadata' => $manifestMetadata
                 );
+
+                //Add to ResourceSpace metadata (if enabled)
+                if($this->resourceSpaceManifestField !== '') {
+                    $result = $this->resourceSpace->updateField($resourceId, $this->resourceSpaceManifestField, $manifestId);
+                    if($result !== 'true') {
+    //                    echo 'Error adding manifest URL to resource with id ' . $resourceId . ':' . PHP_EOL . $result . PHP_EOL;
+                        $this->logger->error('Error adding manifest URL to resource with id ' . $resourceId . ':' . PHP_EOL . $result);
+                    } else if($verbose) {
+                        $this->logger->info('Added manifest URL to resource with id ' . $resourceId);
+                    }
+                }
 
                 if($this->createTopLevelCollection && $data['recommended_for_publication']) {
                     // Update the LIDO data to include the manifest and thumbnail
