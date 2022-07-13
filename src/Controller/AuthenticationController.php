@@ -28,18 +28,22 @@ class AuthenticationController extends AbstractController
         // Forbidden by default
         $returnCode = 403;
 
-        $auth = new Simple('default-sp');
-        if ($auth->isAuthenticated()) {
-            if(Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement)) {
-                // The user is authenticated and needs to be redirected to the original URL
-                $returnCode = 302;
-            }
+        if($adfsRequirement['public']) {
+            $returnCode = 302;
         } else {
-            $auth->requireAuth();
+            $auth = new Simple('default-sp');
             if ($auth->isAuthenticated()) {
                 if(Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement)) {
-                    // The user is now authenticated and needs to be redirected to the original URL
+                    // The user is authenticated and needs to be redirected to the original URL
                     $returnCode = 302;
+                }
+            } else {
+                $auth->requireAuth();
+                if ($auth->isAuthenticated()) {
+                    if(Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement)) {
+                        // The user is now authenticated and needs to be redirected to the original URL
+                        $returnCode = 302;
+                    }
                 }
             }
         }

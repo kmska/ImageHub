@@ -29,15 +29,19 @@ class AuthCheckController extends AbstractController
         // Forbidden by default
         $returnCode = 403;
 
-        $auth = new Simple('default-sp');
-        if ($auth->isAuthenticated()) {
-            if(Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement)) {
-                // The user is already authenticated, everything is in order
-                $returnCode = 200;
-            }
+        if($adfsRequirement['public']) {
+            $returnCode = 200;
         } else {
-            // The user is not yet authenticated, send them to the login page
-            $returnCode = 302;
+            $auth = new Simple('default-sp');
+            if ($auth->isAuthenticated()) {
+                if(Authenticator::isAllowed($auth->getAttributes(), $adfsRequirement)) {
+                    // The user is already authenticated, everything is in order
+                    $returnCode = 200;
+                }
+            } else {
+                // The user is not yet authenticated, send them to the login page
+                $returnCode = 302;
+            }
         }
 
         if($returnCode == 200) {

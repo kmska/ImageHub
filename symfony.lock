@@ -26,6 +26,9 @@
     "doctrine/dbal": {
         "version": "v2.9.2"
     },
+    "doctrine/deprecations": {
+        "version": "v0.5.3"
+    },
     "doctrine/doctrine-bundle": {
         "version": "1.6",
         "recipe": {
@@ -81,6 +84,9 @@
     "doctrine/reflection": {
         "version": "v1.0.0"
     },
+    "doctrine/sql-formatter": {
+        "version": "1.1.1"
+    },
     "gettext/gettext": {
         "version": "v4.7.0"
     },
@@ -105,6 +111,12 @@
     "ocramius/proxy-manager": {
         "version": "2.2.3"
     },
+    "phpfastcache/riak-client": {
+        "version": "3.4.3"
+    },
+    "phpmailer/phpmailer": {
+        "version": "v6.5.1"
+    },
     "psr/cache": {
         "version": "1.0.1"
     },
@@ -117,11 +129,101 @@
     "robrichards/xmlseclibs": {
         "version": "3.0.3"
     },
+    "simplesamlphp/composer-module-installer": {
+        "version": "v1.1.8"
+    },
     "simplesamlphp/saml2": {
         "version": "v3.4.1"
     },
     "simplesamlphp/simplesamlphp": {
         "version": "v1.17.6"
+    },
+    "simplesamlphp/simplesamlphp-module-adfs": {
+        "version": "v0.9.8"
+    },
+    "simplesamlphp/simplesamlphp-module-authcrypt": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-authfacebook": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-authorize": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-authtwitter": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-authwindowslive": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-authx509": {
+        "version": "v0.9.8"
+    },
+    "simplesamlphp/simplesamlphp-module-authyubikey": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-cas": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-cdc": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-consent": {
+        "version": "v0.9.7"
+    },
+    "simplesamlphp/simplesamlphp-module-consentadmin": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-discopower": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-exampleattributeserver": {
+        "version": "v1.0.0"
+    },
+    "simplesamlphp/simplesamlphp-module-expirycheck": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-ldap": {
+        "version": "v0.9.12"
+    },
+    "simplesamlphp/simplesamlphp-module-memcachemonitor": {
+        "version": "v0.9.2"
+    },
+    "simplesamlphp/simplesamlphp-module-memcookie": {
+        "version": "v1.2.2"
+    },
+    "simplesamlphp/simplesamlphp-module-metarefresh": {
+        "version": "v0.9.6"
+    },
+    "simplesamlphp/simplesamlphp-module-negotiate": {
+        "version": "v0.9.11"
+    },
+    "simplesamlphp/simplesamlphp-module-oauth": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-preprodwarning": {
+        "version": "v0.9.2"
+    },
+    "simplesamlphp/simplesamlphp-module-radius": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-riak": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-sanitycheck": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-smartattributes": {
+        "version": "v0.9.1"
+    },
+    "simplesamlphp/simplesamlphp-module-sqlauth": {
+        "version": "v0.9.3"
+    },
+    "simplesamlphp/simplesamlphp-module-statistics": {
+        "version": "v0.9.6"
+    },
+    "simplesamlphp/twig-configurable-i18n": {
+        "version": "v2.3.4"
     },
     "symfony/apache-pack": {
         "version": "1.0",
@@ -162,6 +264,9 @@
     },
     "symfony/dependency-injection": {
         "version": "v4.3.4"
+    },
+    "symfony/deprecation-contracts": {
+        "version": "v2.4.0"
     },
     "symfony/doctrine-bridge": {
         "version": "v4.3.4"
@@ -247,11 +352,11 @@
             "config/packages/test/monolog.yaml"
         ]
     },
-    "symfony/orm-pack": {
-        "version": "v1.0.6"
-    },
     "symfony/polyfill-intl-idn": {
         "version": "v1.12.0"
+    },
+    "symfony/polyfill-intl-normalizer": {
+        "version": "v1.23.0"
     },
     "symfony/polyfill-mbstring": {
         "version": "v1.12.0"

@@ -34,21 +34,23 @@ Your ResourceSpace installation requires a specific set of metadata fields. You 
 
 Certain metadata fields, most notably dropdown lists (for example Publisher and Cleared for usage) need to be prefilled with the necessary values before adding resources. This can be done either manually through the admin console of ResourceSpace or by using the resourcespace_node_values.sql included in this project.
 
-The Imagehub itself also requires its very own database containing the tables 'iiif_manifest', 'datahub_data' and 'resource_data', according to the following structure (utf8mb4 charset is a must for datahub_data and resource_data, otherwise you'll get character encoding errors):
+The Imagehub itself also requires its very own database containing the tables 'iiif_manifest', 'datahub_data' and 'resource_data', according to the structure found in 'imagehub_tables.sql' (utf8mb4 charset is a must for datahub_data and resource_data, otherwise you'll get character encoding errors):
 ```
-CREATE TABLE `iiif_manifest` (
+CREATE TABLE IF NOT EXISTS `iiif_manifest` (
   `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
   `manifest_id` VARCHAR(255) NOT NULL,
-  `data` LONGTEST NOT NULL,
+  `data` LONGTEXT NOT NULL,
   PRIMARY KEY (`id`)
 );
-CREATE TABLE `datahub_data` (
+
+CREATE TABLE IF NOT EXISTS `datahub_data` (
   `id` VARCHAR(255) NOT NULL,
   `name` VARCHAR(255) NOT NULL,
   `value` text NOT NULL,
   PRIMARY KEY (`id`, `name`)
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4;
-CREATE TABLE `resource_data` (
+
+CREATE TABLE IF NOT EXISTS `resource_data` (
   `id` INT UNSIGNED NOT NULL,
   `name` VARCHAR(50) NOT NULL,
   `value` MEDIUMTEXT NOT NULL,

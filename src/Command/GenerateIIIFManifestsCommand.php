@@ -38,6 +38,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
 
     private $serviceUrl;
     private $createTopLevelCollection;
+    private $resourceSpaceManifestField;
 
     private $manifestDb;
     private $placeholderId;
@@ -95,7 +96,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             $resourceSpaceId = null;
         }
         // Always create a top-level collection
-        $this->createTopLevelCollection = true;
+        $this->createTopLevelCollection = $resourceSpaceId == null;
+
+        $this->resourceSpaceManifestField = $this->container->getParameter('resourcespace_manifest_field');
 
         $resources = $this->resourceSpace->getAllResources();
         if ($resources === null) {
@@ -133,7 +136,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         ksort($this->imageData);
 
         $this->generateAndStoreManifests($em);
-        rename('/tmp/import.iiif_manifests.sqlite', $this->container->get('kernel')->getProjectDir() . '/public/import.iiif_manifests.sqlite');
+        if($this->createTopLevelCollection) {
+            rename('/tmp/import.iiif_manifests.sqlite', $this->container->get('kernel')->getProjectDir() . '/public/import.iiif_manifests.sqlite');
+        }
     }
 
     private function getImageData($resourceId, $isPublic)
@@ -325,6 +330,11 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
             }
 
             $manifestId = $this->serviceUrl . $resourceId . '/manifest.json';
+            $manifestMetadata[] = array(
+                'label' => 'Manifest',
+                'value' => '<a href="' . $manifestId . '">' . $manifestId . '</a>'
+            );
+
             // Generate the whole manifest
             $manifest = array(
                 '@context'         => 'http://iiif.io/api/presentation/2/context.json',
@@ -383,12 +393,24 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     $this->storeManifestAndThumbnail('placeholder_manifest', $manifestId, $thumbnail);
                 }
 
-                if($data['recommended_for_publication']) {
+                //Add to ResourceSpace metadata (if enabled)
+                if($this->resourceSpaceManifestField !== '') {
+                    $result = $this->resourceSpace->updateField($resourceId, $this->resourceSpaceManifestField, $manifestId);
+                    if($result !== 'true') {
+    //                    echo 'Error adding manifest URL to resource with id ' . $resourceId . ':' . PHP_EOL . $result . PHP_EOL;
+                        $this->logger->error('Error adding manifest URL to resource with id ' . $resourceId . ':' . PHP_EOL . $result);
+                    } else if($this->verbose) {
+                        $this->logger->info('Added manifest URL to resource with id ' . $resourceId);
+                    }
+                }
+
+                if($this->createTopLevelCollection && $data['recommended_for_publication']) {
                     // Update the LIDO data to include the manifest and thumbnail
                     if (!empty($data['sourceinvnr'])) {
                         $sourceinvnr = $data['sourceinvnr'];
                         if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
-                            $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
+                            $this->
+                            ($sourceinvnr, $manifestId, $thumbnail);
                             //if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
                                 $this->publicManifestsAdded[] = $sourceinvnr;
                             //}
