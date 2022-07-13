@@ -41,6 +41,7 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
     private $resourceSpaceManifestField;
 
     private $manifestDb;
+    private $placeholderId;
 
     protected function configure()
     {
@@ -78,6 +79,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
         $this->labelField = $this->container->getParameter('iiif_label');
         $this->descriptionField = $this->container->getParameter('iiif_description');
         $this->attributionField = $this->container->getParameter('iiif_attribution');
+
+        $this->placeholderId = $this->container->getParameter('placeholder_id');
 
         $this->cantaloupeUrl = $this->container->getParameter('cantaloupe_url');
         $curlOpts = $this->container->getParameter('cantaloupe_curl_opts');
@@ -386,6 +389,10 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     'metadata' => $manifestMetadata
                 );
 
+                if($resourceId == $this->placeholderId) {
+                    $this->storeManifestAndThumbnail('placeholder_manifest', $manifestId, $thumbnail);
+                }
+
                 //Add to ResourceSpace metadata (if enabled)
                 if($this->resourceSpaceManifestField !== '') {
                     $result = $this->resourceSpace->updateField($resourceId, $this->resourceSpaceManifestField, $manifestId);
@@ -402,7 +409,8 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     if (!empty($data['sourceinvnr'])) {
                         $sourceinvnr = $data['sourceinvnr'];
                         if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
-                            $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
+                            $this->
+                            ($sourceinvnr, $manifestId, $thumbnail);
                             //if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
                                 $this->publicManifestsAdded[] = $sourceinvnr;
                             //}
