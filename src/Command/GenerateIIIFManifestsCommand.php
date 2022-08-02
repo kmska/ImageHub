@@ -408,12 +408,9 @@ class GenerateIIIFManifestsCommand extends Command implements ContainerAwareInte
                     // Update the LIDO data to include the manifest and thumbnail
                     if (!empty($data['sourceinvnr'])) {
                         $sourceinvnr = $data['sourceinvnr'];
-                        if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
-                            $this->
-                            ($sourceinvnr, $manifestId, $thumbnail);
-                            //if ($data['public_use'] && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
-                                $this->publicManifestsAdded[] = $sourceinvnr;
-                            //}
+                        if ($publicUse && !in_array($sourceinvnr, $this->publicManifestsAdded)) {
+                            $this->storeManifestAndThumbnail($sourceinvnr, $manifestId, $thumbnail);
+                            $this->publicManifestsAdded[] = $sourceinvnr;
                         }
                     }
                 }
